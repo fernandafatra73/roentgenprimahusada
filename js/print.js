@@ -177,10 +177,10 @@ function previewReport(reg, ctx) {
   openPrintWindow(html, false);
 }
 
-const LABEL_KOLOM = 1;
-const LABEL_BARIS = 1;
-const LABEL_LEBAR_MM = 210; // 21 cm
-const LABEL_TINGGI_MM = 150; // 15 cm
+const LABEL_KOLOM = 2;
+const LABEL_BARIS = 3;
+const LABEL_LEBAR_MM = 100; // 10 cm
+const LABEL_TINGGI_MM = 80; // 8 cm
 const LABEL_PER_HALAMAN = LABEL_KOLOM * LABEL_BARIS;
 
 function buildLabelHTML(reg, ctx, jumlah) {
@@ -189,7 +189,7 @@ function buildLabelHTML(reg, ctx, jumlah) {
     <div class="label">
       <div class="label-klinik">${escapeHTML(settings.namaKlinik)}</div>
       <div class="label-nama">${escapeHTML(reg.nama)}</div>
-      <div class="label-row"><span>No. RM: ${escapeHTML(reg.noRM)}</span><span>${reg.jk === 'P' ? 'Perempuan' : 'Laki-laki'} / ${escapeHTML(reg.umur)}</span></div>
+      <div class="label-row"><span>No. RM: ${escapeHTML(reg.noRM)}</span><span>${reg.jk === 'P' ? 'P' : 'L'} / ${escapeHTML(reg.umur)}</span></div>
       <div class="label-row"><span>Tanggal: ${formatTanggal(reg.tanggal)}</span><span>No. Reg: ${escapeHTML(reg.noReg)}</span></div>
     </div>`;
 
@@ -206,14 +206,14 @@ function buildLabelHTML(reg, ctx, jumlah) {
   return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
   <title>Label - ${escapeHTML(reg.nama)}</title>
   <style>
-    @page { size: A4; margin: 0mm; }
+    @page { size: A4; margin: 4mm; }
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; }
     .page {
-      width: 210mm;
-      height: 150mm;
-      display: flex;
-      align-items: center;
+      display: grid;
+      grid-template-columns: repeat(${LABEL_KOLOM}, ${LABEL_LEBAR_MM}mm);
+      grid-template-rows: repeat(${LABEL_BARIS}, ${LABEL_TINGGI_MM}mm);
+      gap: 2mm;
       justify-content: center;
       page-break-after: always;
     }
@@ -222,16 +222,16 @@ function buildLabelHTML(reg, ctx, jumlah) {
       width: ${LABEL_LEBAR_MM}mm;
       height: ${LABEL_TINGGI_MM}mm;
       border: 1px solid #0f6e5f;
-      padding: 12mm;
+      padding: 6mm;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 8mm;
+      gap: 4mm;
     }
-    .label-klinik { font-size: 16px; color:#0f6e5f; font-weight:700; text-transform:uppercase; letter-spacing: .5px; }
-    .label-nama { font-size: 34px; font-weight:700; line-height:1.2; word-break: break-word; }
-    .label-row { display:flex; justify-content:space-between; font-size:16px; }
+    .label-klinik { font-size: 10px; color:#0f6e5f; font-weight:700; text-transform:uppercase; letter-spacing: .5px; }
+    .label-nama { font-size: 19px; font-weight:700; line-height:1.2; word-break: break-word; }
+    .label-row { display:flex; justify-content:space-between; font-size:10.5px; }
     .cetak-bar { text-align:center; margin: 16px 0; }
     .cetak-bar button { padding: 8px 22px; font-size:14px; background:#0f6e5f; color:#fff; border:none; border-radius:6px; cursor:pointer; }
     @media print { .cetak-bar { display:none; } }
