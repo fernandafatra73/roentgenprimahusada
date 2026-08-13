@@ -8,7 +8,19 @@ const DB_KEYS = {
   DOKTER: 'lab_dokter',
   PAKET: 'lab_paket',
   REG: 'lab_registrasi',
-  SEQ: 'lab_seq'
+  SEQ: 'lab_seq',
+  USERS: 'lab_users'
+};
+
+const SESSION_KEY = 'lab_session_uid';
+
+/* Peran & hak akses. Ini adalah gerbang akses sisi-klien (localStorage) untuk
+   kenyamanan penggunaan bersama satu komputer — bukan otentikasi tingkat
+   server, karena aplikasi ini tidak memiliki backend. */
+const ROLES = {
+  ceo: { label: 'CEO', views: ['daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'pengaturan', 'users'] },
+  manajer: { label: 'Manajer', views: ['daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket'] },
+  karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil'] }
 };
 
 const DEFAULT_LOGO =
@@ -49,6 +61,14 @@ function defaultSettings() {
     penanggungJawab: 'dr. Nama Penanggung Jawab, Sp.PK',
     logo: DEFAULT_LOGO
   };
+}
+
+function defaultUsers() {
+  return [
+    { id: uid('usr'), username: 'ceo', password: 'ceo123', nama: 'Pimpinan Laboratorium', role: 'ceo', aktif: true },
+    { id: uid('usr'), username: 'manajer', password: 'manajer123', nama: 'Manajer Laboratorium', role: 'manajer', aktif: true },
+    { id: uid('usr'), username: 'karyawan', password: 'karyawan123', nama: 'Staf Laboratorium', role: 'karyawan', aktif: true }
+  ];
 }
 
 function defaultAnalis() {
@@ -225,6 +245,13 @@ const DB = {
     saveJSON(DB_KEYS.REG, list);
   },
 
+  getUsers() {
+    return loadJSON(DB_KEYS.USERS, defaultUsers());
+  },
+  saveUsers(list) {
+    saveJSON(DB_KEYS.USERS, list);
+  },
+
   nextNoRM() {
     let seq = loadJSON(DB_KEYS.SEQ, { rm: 0, reg: 0 });
     seq.rm += 1;
@@ -248,6 +275,7 @@ const DB = {
     if (!localStorage.getItem(DB_KEYS.DOKTER)) this.saveDokter(defaultDokter());
     if (!localStorage.getItem(DB_KEYS.PAKET)) this.savePaket(defaultPaket());
     if (!localStorage.getItem(DB_KEYS.REG)) this.saveRegistrasi([]);
+    if (!localStorage.getItem(DB_KEYS.USERS)) this.saveUsers(defaultUsers());
     this.migrate();
   },
 

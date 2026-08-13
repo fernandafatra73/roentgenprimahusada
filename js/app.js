@@ -4,6 +4,7 @@
 
 let editingRegId = null;
 let hasilRegId = null;
+let currentUser = null;
 
 /* ------------------------------ Util UI ---------------------------------- */
 
@@ -80,6 +81,86 @@ function renderBrand() {
   $('#brandName').textContent = s.namaKlinik;
 }
 
+/* ================================= AUTH / RBAC ============================= */
+
+function renderLoginBrand() {
+  const s = DB.getSettings();
+  $('#loginLogo').src = s.logo;
+  $('#loginNamaKlinik').textContent = s.namaKlinik;
+}
+
+function hasAccess(view) {
+  if (!currentUser) return false;
+  const role = ROLES[currentUser.role];
+  return !!role && role.views.includes(view);
+}
+
+function applyRBAC() {
+  const role = ROLES[currentUser.role];
+  $all('.navbtn[data-view]').forEach(btn => {
+    const view = btn.dataset.view;
+    const visible = view === 'daftar' || role.views.includes(view);
+    btn.classList.toggle('hidden-role', !visible);
+  });
+}
+
+function showLoginScreen() {
+  currentUser = null;
+  renderLoginBrand();
+  $('#loginScreen').style.display = 'flex';
+  $('#appShell').style.display = 'none';
+  $('#loginError').classList.remove('show');
+  $('#loginUsername').value = '';
+  $('#loginPassword').value = '';
+  setTimeout(() => $('#loginUsername').focus(), 50);
+}
+
+function enterApp(user) {
+  currentUser = user;
+  applyRBAC();
+  $('#loginScreen').style.display = 'none';
+  $('#appShell').style.display = 'block';
+  $('#loggedUserNama').textContent = user.nama;
+  $('#loggedUserRole').textContent = ROLES[user.role] ? ROLES[user.role].label : user.role;
+  renderBrand();
+  showView('daftar');
+  renderDaftar();
+}
+
+function checkSession() {
+  const uid = sessionStorage.getItem(SESSION_KEY);
+  if (uid) {
+    const user = DB.getUsers().find(u => u.id === uid && u.aktif !== false);
+    if (user) { enterApp(user); return; }
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+  showLoginScreen();
+}
+
+$('#formLogin').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const username = $('#loginUsername').value.trim();
+  const password = $('#loginPassword').value;
+  const user = DB.getUsers().find(u =>
+    u.username.toLowerCase() === username.toLowerCase() && u.password === password && u.aktif !== false
+  );
+  if (!user) {
+    const err = $('#loginError');
+    err.classList.remove('show');
+    void err.offsetWidth;
+    err.classList.add('show');
+    return;
+  }
+  sessionStorage.setItem(SESSION_KEY, user.id);
+  enterApp(user);
+  showToast('Selamat datang, ' + user.nama + '.');
+});
+
+$('#btnLogout').addEventListener('click', () => {
+  sessionStorage.removeItem(SESSION_KEY);
+  showLoginScreen();
+});
+
 /* ================================ DAFTAR ================================= */
 
 function regStatus(reg) {
@@ -136,7 +217,9 @@ function renderDaftar() {
     aksiCell.appendChild(makeBtn('Preview', 'btn-light', () => previewReport(r, printCtx())));
     aksiCell.appendChild(makeBtn('Print', 'btn-primary', () => printReport(r, printCtx())));
     aksiCell.appendChild(makeBtn('Label', 'btn-light', () => openLabelModal(r)));
-    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', () => hapusRegistrasi(r.id)));
+    if (currentUser && currentUser.role !== 'karyawan') {
+      aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', () => hapusRegistrasi(r.id)));
+    }
     tbody.appendChild(tr);
   });
 }
@@ -165,7 +248,7 @@ async function hapusRegistrasi(id) {
 
 function openLabelModal(reg) {
   $('#labelRegInfo').innerHTML = `<strong>${escapeHTML(reg.nama)}</strong><br>No.RM: ${escapeHTML(reg.noRM)} — ${formatTanggal(reg.tanggal)}`;
-  $('#labelJumlah').value = 12;
+  $('#labelJumlah').value = 1;
   const modal = $('#modalLabel');
   modal.classList.add('show');
   const okBtn = $('#labelOk');
@@ -709,11 +792,106 @@ $('#formPengaturan').addEventListener('submit', (e) => {
   showToast('Pengaturan disimpan.');
 });
 
+/* =========================== MANAJEMEN PENGGUNA ============================ */
+
+function roleTagHTML(role) {
+  const label = ROLES[role] ? ROLES[role].label : role;
+  return `<span class="role-tag role-tag-${role}">${escapeHTML(label)}</span>`;
+}
+
+function renderUsers() {
+  if (!currentUser || currentUser.role !== 'ceo') return;
+  const list = DB.getUsers();
+  const tbody = $('#tblUsersBody');
+  tbody.innerHTML = '';
+  list.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(u.username)}</td>
+      <td><input type="text" class="inline-edit" value="${escapeHTML(u.nama)}"></td>
+      <td></td>
+      <td><input type="password" class="inline-edit user-pass-input" value="${escapeHTML(u.password)}"></td>
+      <td class="center"><input type="checkbox" ${u.aktif !== false ? 'checked' : ''}></td>
+      <td class="aksi-cell"></td>
+    `;
+    const [, namaCell, roleCell, passCell, aktifCell, aksiCell] = tr.children;
+
+    const roleSelect = document.createElement('select');
+    roleSelect.className = 'role-select';
+    Object.keys(ROLES).forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = ROLES[r].label;
+      if (r === u.role) opt.selected = true;
+      roleSelect.appendChild(opt);
+    });
+    roleSelect.addEventListener('change', (e) => {
+      u.role = e.target.value;
+      DB.saveUsers(list);
+      showToast('Peran pengguna diperbarui.');
+      if (currentUser.id === u.id) { currentUser = u; applyRBAC(); }
+    });
+    roleCell.appendChild(roleSelect);
+
+    namaCell.querySelector('input').addEventListener('change', (e) => {
+      u.nama = e.target.value.trim();
+      DB.saveUsers(list);
+      if (currentUser.id === u.id) { currentUser = u; $('#loggedUserNama').textContent = u.nama; }
+    });
+    passCell.querySelector('input').addEventListener('change', (e) => {
+      if (!e.target.value) { e.target.value = u.password; return; }
+      u.password = e.target.value;
+      DB.saveUsers(list);
+      showToast('Password diperbarui.');
+    });
+    aktifCell.querySelector('input').addEventListener('change', (e) => {
+      u.aktif = e.target.checked;
+      DB.saveUsers(list);
+    });
+    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+      if (u.id === currentUser.id) { showToast('Tidak bisa menghapus akun yang sedang digunakan.'); return; }
+      if (u.role === 'ceo' && list.filter(x => x.role === 'ceo').length <= 1) {
+        showToast('Minimal harus ada satu akun CEO.'); return;
+      }
+      const ok = await confirmAsync(`Hapus pengguna "${u.nama}" (${u.username})?`);
+      if (!ok) return;
+      DB.saveUsers(list.filter(x => x.id !== u.id));
+      renderUsers();
+      showToast('Pengguna dihapus.');
+    }));
+    tbody.appendChild(tr);
+  });
+}
+
+$('#btnAddUser').addEventListener('click', () => {
+  if (!currentUser || currentUser.role !== 'ceo') return;
+  const usernameI = $('#newUserUsername');
+  const passwordI = $('#newUserPassword');
+  const namaI = $('#newUserNama');
+  const roleI = $('#newUserRole');
+  const username = usernameI.value.trim();
+  const password = passwordI.value;
+  const nama = namaI.value.trim();
+  if (!username || !password || !nama) { showToast('Username, password, dan nama wajib diisi.'); return; }
+  const list = DB.getUsers();
+  if (list.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+    showToast('Username sudah digunakan.'); return;
+  }
+  list.push({ id: uid('usr'), username, password, nama, role: roleI.value, aktif: true });
+  DB.saveUsers(list);
+  usernameI.value = '';
+  passwordI.value = '';
+  namaI.value = '';
+  renderUsers();
+  showToast('Pengguna ditambahkan.');
+});
+
 /* ================================ NAVIGASI ================================= */
 
-$all('.navbtn').forEach(btn => {
+$all('.navbtn[data-view]').forEach(btn => {
   btn.addEventListener('click', () => {
     const view = btn.dataset.view;
+    if (!hasAccess(view)) return;
     showView(view);
     refreshView(view);
   });
@@ -742,10 +920,10 @@ function refreshView(view) {
   else if (view === 'master-dokter') renderDokter();
   else if (view === 'master-paket') renderPaketMaster();
   else if (view === 'pengaturan') renderPengaturan();
+  else if (view === 'users') renderUsers();
 }
 
 /* ================================== INIT ==================================== */
 
 DB.init();
-renderBrand();
-renderDaftar();
+checkSession();

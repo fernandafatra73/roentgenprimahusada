@@ -8,6 +8,49 @@
 </head>
 <body>
 
+<!-- ======================= LAYAR LOGIN ======================= -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand">
+      <img id="loginLogo" src="" alt="Logo">
+      <div class="login-nama" id="loginNamaKlinik">LABORATORIUM</div>
+      <div class="login-sub">Silakan masuk untuk melanjutkan</div>
+    </div>
+
+    <div class="login-error" id="loginError">Username atau password salah.</div>
+
+    <form id="formLogin">
+      <div class="login-field">
+        <label>Username</label>
+        <div class="login-input-wrap">
+          <span class="login-icon">&#128100;</span>
+          <input type="text" id="loginUsername" autocomplete="username" required>
+        </div>
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <div class="login-input-wrap">
+          <span class="login-icon">&#128274;</span>
+          <input type="password" id="loginPassword" autocomplete="current-password" required>
+        </div>
+      </div>
+      <button type="submit" class="btn-login">Masuk</button>
+    </form>
+
+    <details class="login-hint">
+      <summary>Akun default (untuk penggunaan pertama kali)</summary>
+      <table>
+        <tr><td><strong>CEO</strong></td><td>ceo</td><td>ceo123</td></tr>
+        <tr><td><strong>Manajer</strong></td><td>manajer</td><td>manajer123</td></tr>
+        <tr><td><strong>Karyawan</strong></td><td>karyawan</td><td>karyawan123</td></tr>
+      </table>
+      Segera ganti password melalui menu Pengguna (khusus CEO) setelah masuk.
+    </details>
+  </div>
+</div>
+
+<div id="appShell" style="display:none">
+
 <header class="topbar">
   <div class="topbar-brand">
     <img id="brandLogo" src="" alt="Logo">
@@ -22,6 +65,14 @@
     <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
     <button class="navbtn" data-view="master-paket">Paket &amp; Harga</button>
     <button class="navbtn" data-view="pengaturan">Pengaturan</button>
+    <button class="navbtn" data-view="users">Pengguna</button>
+    <div class="topbar-user">
+      <div class="user-info">
+        <div class="user-nama" id="loggedUserNama">-</div>
+        <span class="role-badge" id="loggedUserRole">-</span>
+      </div>
+      <button type="button" class="btn-logout" id="btnLogout">Keluar</button>
+    </div>
   </nav>
 </header>
 
@@ -254,7 +305,35 @@
     </form>
   </section>
 
+  <!-- ======================= VIEW: MANAJEMEN PENGGUNA ======================= -->
+  <section id="view-users" class="view">
+    <div class="view-header">
+      <h2>Manajemen Pengguna</h2>
+    </div>
+    <div class="card">
+      <div class="form-inline-add">
+        <input type="text" id="newUserUsername" placeholder="Username">
+        <input type="password" id="newUserPassword" placeholder="Password">
+        <input type="text" id="newUserNama" placeholder="Nama lengkap">
+        <select id="newUserRole" class="role-select">
+          <option value="karyawan">Karyawan</option>
+          <option value="manajer">Manajer</option>
+          <option value="ceo">CEO</option>
+        </select>
+        <button class="btn btn-primary" id="btnAddUser">Tambah Pengguna</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Username</th><th>Nama</th><th>Peran</th><th>Password</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblUsersBody"></tbody>
+      </table>
+    </div>
+  </section>
+
 </main>
+</div>
+
 
 <!-- ======================= MODAL: KONFIRMASI ======================= -->
 <div class="modal-overlay" id="modalConfirm">
@@ -284,8 +363,8 @@
   <div class="modal-box">
     <p>Cetak label untuk:</p>
     <div id="labelRegInfo" class="label-reg-info"></div>
-    <label class="modal-label-count">Jumlah label: <input type="number" id="labelJumlah" value="12" min="1" max="96"></label>
-    <p style="font-size:11.5px; color:#6b7a76; margin-top:6px;">Tata letak: 3 lajur x 4 baris (12 label) per lembar A4, ukuran tiap label 15mm x 21mm.</p>
+    <label class="modal-label-count">Jumlah lembar: <input type="number" id="labelJumlah" value="1" min="1" max="20"></label>
+    <p style="font-size:11.5px; color:#6b7a76; margin-top:6px;">1 label per lembar A4, ukuran label 21 cm (lebar) x 15 cm (tinggi).</p>
     <div class="modal-actions">
       <button class="btn btn-light" id="labelCancel">Batal</button>
       <button class="btn btn-primary" id="labelOk">Cetak Label</button>
