@@ -177,20 +177,35 @@ function previewReport(reg, ctx) {
   openPrintWindow(html, false);
 }
 
-const LABEL_KOLOM = 2;
-const LABEL_BARIS = 3;
+const LABEL_KOLOM = 1;
+const LABEL_BARIS = 1;
 const LABEL_LEBAR_MM = 100; // 10 cm
 const LABEL_TINGGI_MM = 80; // 8 cm
 const LABEL_PER_HALAMAN = LABEL_KOLOM * LABEL_BARIS;
 
 function buildLabelHTML(reg, ctx, jumlah) {
   const settings = ctx.settings;
+  const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
+  const pemeriksaan = (reg.paketSnapshot || []).map(p => p.nama).join(', ');
+
   const satuLabel = `
     <div class="label">
-      <div class="label-klinik">${escapeHTML(settings.namaKlinik)}</div>
-      <div class="label-nama">${escapeHTML(reg.nama)}</div>
-      <div class="label-row"><span>No. RM: ${escapeHTML(reg.noRM)}</span><span>${reg.jk === 'P' ? 'P' : 'L'} / ${escapeHTML(reg.umur)}</span></div>
-      <div class="label-row"><span>Tanggal: ${formatTanggal(reg.tanggal)}</span><span>No. Reg: ${escapeHTML(reg.noReg)}</span></div>
+      <div class="label-head">
+        <img src="${settings.logo}" alt="logo">
+        <div class="label-head-teks">
+          <div class="label-klinik">${escapeHTML(settings.namaKlinik)}</div>
+          <div class="label-alamat">${escapeHTML(settings.alamat)}</div>
+        </div>
+      </div>
+      <div class="label-garis"></div>
+      <table class="label-info">
+        <tr><td>No. Reg</td><td>${escapeHTML(reg.noReg)}</td></tr>
+        <tr><td>Nama</td><td><strong>${escapeHTML(reg.nama)}</strong></td></tr>
+        <tr><td>Umur</td><td>${reg.jk === 'P' ? 'Perempuan' : 'Laki-laki'} / ${escapeHTML(reg.umur)}</td></tr>
+        <tr><td>Alamat</td><td class="clamp2">${escapeHTML(reg.alamat)}</td></tr>
+        <tr><td>Pemeriksaan</td><td class="clamp2">${escapeHTML(pemeriksaan)}</td></tr>
+        <tr><td>Pengirim</td><td>${escapeHTML(dokter ? dokter.nama : '-')}</td></tr>
+      </table>
     </div>`;
 
   let halaman = '';
@@ -222,16 +237,22 @@ function buildLabelHTML(reg, ctx, jumlah) {
       width: ${LABEL_LEBAR_MM}mm;
       height: ${LABEL_TINGGI_MM}mm;
       border: 1px solid #0f6e5f;
-      padding: 6mm;
+      padding: 4mm 5mm;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 4mm;
     }
-    .label-klinik { font-size: 10px; color:#0f6e5f; font-weight:700; text-transform:uppercase; letter-spacing: .5px; }
-    .label-nama { font-size: 19px; font-weight:700; line-height:1.2; word-break: break-word; }
-    .label-row { display:flex; justify-content:space-between; font-size:10.5px; }
+    .label-head { display: flex; align-items: center; gap: 3mm; }
+    .label-head img { width: 11mm; height: 11mm; object-fit: contain; flex-shrink: 0; }
+    .label-head-teks { min-width: 0; }
+    .label-klinik { font-size: 9.5px; color:#0f6e5f; font-weight:700; text-transform:uppercase; letter-spacing: .3px; line-height:1.25; }
+    .label-alamat { font-size: 7.5px; color:#444; line-height:1.3; }
+    .label-garis { border-top: 1px solid #0f6e5f; margin: 2mm 0; }
+    .label-info { width:100%; border-collapse: collapse; font-size: 8px; }
+    .label-info td { padding: 1mm 0; vertical-align: top; }
+    .label-info td:first-child { width: 21mm; color:#666; white-space: nowrap; }
+    .label-info td:last-child { font-size: 8.5px; }
+    .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .cetak-bar { text-align:center; margin: 16px 0; }
     .cetak-bar button { padding: 8px 22px; font-size:14px; background:#0f6e5f; color:#fff; border:none; border-radius:6px; cursor:pointer; }
     @media print { .cetak-bar { display:none; } }

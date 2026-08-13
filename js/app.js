@@ -248,7 +248,7 @@ async function hapusRegistrasi(id) {
 
 function openLabelModal(reg) {
   $('#labelRegInfo').innerHTML = `<strong>${escapeHTML(reg.nama)}</strong><br>No.RM: ${escapeHTML(reg.noRM)} — ${formatTanggal(reg.tanggal)}`;
-  $('#labelJumlah').value = 6;
+  $('#labelJumlah').value = 1;
   const modal = $('#modalLabel');
   modal.classList.add('show');
   const okBtn = $('#labelOk');
