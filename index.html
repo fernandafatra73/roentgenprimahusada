@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aplikasi Laboratorium Klinik</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-brand">
+    <img id="brandLogo" src="" alt="Logo">
+    <div>
+      <div class="brand-name" id="brandName">LABORATORIUM</div>
+      <div class="brand-sub">Sistem Informasi Laboratorium</div>
+    </div>
+  </div>
+  <nav class="topnav">
+    <button class="navbtn active" data-view="daftar">Pendaftaran</button>
+    <button class="navbtn" data-view="master-analis">Analis</button>
+    <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
+    <button class="navbtn" data-view="master-paket">Paket &amp; Harga</button>
+    <button class="navbtn" data-view="pengaturan">Pengaturan</button>
+  </nav>
+</header>
+
+<main class="content">
+
+  <!-- ======================= VIEW: DAFTAR / REGISTRASI ======================= -->
+  <section id="view-daftar" class="view active">
+    <div class="view-header">
+      <h2>Pendaftaran Pasien Laboratorium</h2>
+      <button class="btn btn-primary" id="btnTambahDaftar">+ Pendaftaran Baru</button>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="cariPasien" placeholder="Cari nama / No. RM / No. Registrasi...">
+      <input type="date" id="filterTanggal">
+      <button class="btn btn-light" id="btnResetFilter">Reset</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="tbl" id="tblDaftar">
+        <thead>
+          <tr>
+            <th>No. Reg</th>
+            <th>Tanggal</th>
+            <th>No. RM</th>
+            <th>Nama Pasien</th>
+            <th>JK/Umur</th>
+            <th>Dokter Pengirim</th>
+            <th>Analis</th>
+            <th>Paket</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblDaftarBody"></tbody>
+      </table>
+      <div id="emptyDaftar" class="empty-state" style="display:none">Belum ada data pendaftaran.</div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: FORM PENDAFTARAN ======================= -->
+  <section id="view-form" class="view">
+    <div class="view-header">
+      <h2 id="formTitle">Pendaftaran Baru</h2>
+      <button class="btn btn-light" data-back="daftar">&larr; Kembali</button>
+    </div>
+
+    <form id="formDaftar" class="card form-grid">
+      <input type="hidden" id="fRegId">
+
+      <div class="form-row">
+        <label>No. Registrasi</label>
+        <input type="text" id="fNoReg" readonly>
+      </div>
+      <div class="form-row">
+        <label>No. Rekam Medis (RM)</label>
+        <div class="input-inline">
+          <input type="text" id="fNoRM">
+          <button type="button" class="btn btn-light" id="btnAutoRM">Auto</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Tanggal Periksa</label>
+        <input type="date" id="fTanggal" required>
+      </div>
+      <div class="form-row">
+        <label>Nama Pasien</label>
+        <input type="text" id="fNama" required>
+      </div>
+      <div class="form-row">
+        <label>Tanggal Lahir</label>
+        <input type="date" id="fTglLahir">
+      </div>
+      <div class="form-row">
+        <label>Umur</label>
+        <input type="text" id="fUmur" placeholder="cth. 35 th">
+      </div>
+      <div class="form-row">
+        <label>Jenis Kelamin</label>
+        <select id="fJK">
+          <option value="L">Laki-laki</option>
+          <option value="P">Perempuan</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>No. Telepon</label>
+        <input type="text" id="fTelp">
+      </div>
+      <div class="form-row form-row-wide">
+        <label>Alamat</label>
+        <input type="text" id="fAlamat">
+      </div>
+
+      <div class="form-row">
+        <label>Dokter Pengirim</label>
+        <div class="input-inline">
+          <select id="fDokter"></select>
+          <button type="button" class="btn btn-light" id="btnTambahDokterInline">+</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Analis</label>
+        <div class="input-inline">
+          <select id="fAnalis"></select>
+          <button type="button" class="btn btn-light" id="btnTambahAnalisInline">+</button>
+        </div>
+      </div>
+
+      <div class="form-row form-row-wide">
+        <label>Pilih Paket Pemeriksaan</label>
+        <div class="paket-grid" id="paketPilihan"></div>
+      </div>
+
+      <div class="form-row form-row-wide">
+        <label>Catatan</label>
+        <input type="text" id="fCatatan" placeholder="opsional">
+      </div>
+
+      <div class="form-row form-row-wide total-row">
+        <span>Total Harga</span>
+        <strong id="fTotalHarga">Rp 0</strong>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Simpan Pendaftaran</button>
+        <button type="button" class="btn btn-light" data-back="daftar">Batal</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ======================= VIEW: INPUT / EDIT HASIL ======================= -->
+  <section id="view-hasil" class="view">
+    <div class="view-header">
+      <h2>Input Hasil Pemeriksaan</h2>
+      <button class="btn btn-light" data-back="daftar">&larr; Kembali</button>
+    </div>
+
+    <div class="card" id="hasilPasienInfo"></div>
+
+    <form id="formHasil" class="card">
+      <div id="hasilTablesWrap"></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Simpan Hasil</button>
+        <button type="button" class="btn btn-light" data-back="daftar">Batal</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ======================= VIEW: MASTER ANALIS ======================= -->
+  <section id="view-master-analis" class="view">
+    <div class="view-header">
+      <h2>Data Analis</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newAnalisNama" placeholder="Nama analis...">
+      <button class="btn btn-primary" id="btnAddAnalis">Tambah</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama Analis</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblAnalisBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: MASTER DOKTER ======================= -->
+  <section id="view-master-dokter" class="view">
+    <div class="view-header">
+      <h2>Data Dokter Pengirim</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newDokterNama" placeholder="Nama dokter...">
+      <input type="text" id="newDokterAsal" placeholder="Asal / Poli...">
+      <button class="btn btn-primary" id="btnAddDokter">Tambah</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama Dokter</th><th>Asal / Poli</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblDokterBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: MASTER PAKET & HARGA ======================= -->
+  <section id="view-master-paket" class="view">
+    <div class="view-header">
+      <h2>Paket Pemeriksaan &amp; Harga</h2>
+      <button class="btn btn-primary" id="btnTambahPaket">+ Paket Baru</button>
+    </div>
+    <div id="paketMasterWrap"></div>
+  </section>
+
+  <!-- ======================= VIEW: PENGATURAN ======================= -->
+  <section id="view-pengaturan" class="view">
+    <div class="view-header">
+      <h2>Pengaturan Kop Surat &amp; Logo</h2>
+    </div>
+    <form id="formPengaturan" class="card form-grid">
+      <div class="form-row form-row-wide">
+        <label>Nama Klinik / Laboratorium</label>
+        <input type="text" id="sNamaKlinik">
+      </div>
+      <div class="form-row form-row-wide">
+        <label>Alamat</label>
+        <input type="text" id="sAlamat">
+      </div>
+      <div class="form-row">
+        <label>Telepon</label>
+        <input type="text" id="sTelp">
+      </div>
+      <div class="form-row">
+        <label>Email</label>
+        <input type="text" id="sEmail">
+      </div>
+      <div class="form-row form-row-wide">
+        <label>Penanggung Jawab (untuk tanda tangan cetak)</label>
+        <input type="text" id="sPenanggungJawab">
+      </div>
+      <div class="form-row form-row-wide">
+        <label>Logo</label>
+        <div class="logo-uploader">
+          <img id="logoPreview" src="" alt="Logo preview">
+          <input type="file" id="sLogoFile" accept="image/*">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Simpan Pengaturan</button>
+      </div>
+    </form>
+  </section>
+
+</main>
+
+<!-- ======================= MODAL: KONFIRMASI ======================= -->
+<div class="modal-overlay" id="modalConfirm">
+  <div class="modal-box">
+    <p id="confirmMsg">Yakin?</p>
+    <div class="modal-actions">
+      <button class="btn btn-light" id="confirmCancel">Batal</button>
+      <button class="btn btn-danger" id="confirmOk">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= MODAL: PROMPT SEDERHANA ======================= -->
+<div class="modal-overlay" id="modalPrompt">
+  <div class="modal-box">
+    <p id="promptMsg">Masukkan nilai</p>
+    <input type="text" id="promptInput" class="modal-input">
+    <div class="modal-actions">
+      <button class="btn btn-light" id="promptCancel">Batal</button>
+      <button class="btn btn-primary" id="promptOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= MODAL: PILIH LABEL ======================= -->
+<div class="modal-overlay" id="modalLabel">
+  <div class="modal-box">
+    <p>Cetak label untuk:</p>
+    <div id="labelRegInfo" class="label-reg-info"></div>
+    <label class="modal-label-count">Jumlah label: <input type="number" id="labelJumlah" value="12" min="1" max="96"></label>
+    <p style="font-size:11.5px; color:#6b7a76; margin-top:6px;">Tata letak: 3 lajur x 4 baris (12 label) per lembar A4, ukuran tiap label 15mm x 21mm.</p>
+    <div class="modal-actions">
+      <button class="btn btn-light" id="labelCancel">Batal</button>
+      <button class="btn btn-primary" id="labelOk">Cetak Label</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="js/data.js"></script>
+<script src="js/print.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
