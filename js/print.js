@@ -186,7 +186,6 @@ const LABEL_PER_HALAMAN = LABEL_KOLOM * LABEL_BARIS;
 function buildLabelHTML(reg, ctx, jumlah) {
   const settings = ctx.settings;
   const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
-  const pemeriksaan = (reg.paketSnapshot || []).map(p => p.nama).join(', ');
 
   const satuLabel = `
     <div class="label">
@@ -203,7 +202,7 @@ function buildLabelHTML(reg, ctx, jumlah) {
         <tr><td>Nama</td><td><strong>${escapeHTML(reg.nama)}</strong></td></tr>
         <tr><td>Umur</td><td>${reg.jk === 'P' ? 'Perempuan' : 'Laki-laki'} / ${escapeHTML(reg.umur)}</td></tr>
         <tr><td>Alamat</td><td class="clamp2">${escapeHTML(reg.alamat)}</td></tr>
-        <tr><td>Pemeriksaan</td><td class="clamp2">${escapeHTML(pemeriksaan)}</td></tr>
+        <tr><td>Tanggal</td><td>${formatTanggal(reg.tanggal)}</td></tr>
         <tr><td>Pengirim</td><td>${escapeHTML(dokter ? dokter.nama : '-')}</td></tr>
       </table>
     </div>`;
