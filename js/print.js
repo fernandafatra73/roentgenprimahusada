@@ -180,7 +180,7 @@ function previewReport(reg, ctx) {
 const LABEL_KOLOM = 1;
 const LABEL_BARIS = 1;
 const LABEL_LEBAR_MM = 100; // 10 cm
-const LABEL_TINGGI_MM = 80; // 8 cm
+const LABEL_TINGGI_MM = 60; // 6 cm
 const LABEL_PER_HALAMAN = LABEL_KOLOM * LABEL_BARIS;
 
 function buildLabelHTML(reg, ctx, jumlah) {
