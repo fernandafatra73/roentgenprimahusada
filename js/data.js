@@ -286,6 +286,20 @@ const DB = {
       hema.nama = 'Hematologi';
       this.savePaket(paket);
     }
+
+    // Registrasi yang sudah tersimpan menyimpan salinan (snapshot) nama paket
+    // sendiri, jadi rename di atas tidak otomatis ikut berubah di sana.
+    const reg = this.getRegistrasi();
+    let regBerubah = false;
+    reg.forEach(r => {
+      (r.paketSnapshot || []).forEach(p => {
+        if (p.id === 'hematologi' && p.nama === 'Klasifikasi Hematologi') {
+          p.nama = 'Hematologi';
+          regBerubah = true;
+        }
+      });
+    });
+    if (regBerubah) this.saveRegistrasi(reg);
   }
 };
 
