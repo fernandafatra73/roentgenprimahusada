@@ -19,7 +19,7 @@ const SESSION_KEY = 'lab_session_uid';
    server, karena aplikasi ini tidak memiliki backend. */
 const ROLES = {
   ceo: { label: 'CEO', views: ['daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'pengaturan', 'users'] },
-  manajer: { label: 'Manajer', views: ['daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket'] },
+  manajer: { label: 'Manajer', views: ['daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'pengaturan'] },
   karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil'] }
 };
 
