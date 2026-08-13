@@ -179,8 +179,8 @@ function previewReport(reg, ctx) {
 
 const LABEL_KOLOM = 1;
 const LABEL_BARIS = 1;
-const LABEL_LEBAR_MM = 100; // 10 cm
-const LABEL_TINGGI_MM = 50; // 5 cm
+const LABEL_LEBAR_MM = 80; // 8 cm
+const LABEL_TINGGI_MM = 60; // 6 cm
 const LABEL_PER_HALAMAN = LABEL_KOLOM * LABEL_BARIS;
 
 function buildLabelHTML(reg, ctx, jumlah) {
@@ -193,7 +193,7 @@ function buildLabelHTML(reg, ctx, jumlah) {
         <img src="${settings.logo}" alt="logo">
         <div class="label-head-teks">
           <div class="label-klinik">${escapeHTML(settings.namaKlinik)}</div>
-          <div class="label-alamat">${escapeHTML(settings.alamat)}</div>
+          <div class="label-alamat clamp2">${escapeHTML(settings.alamat)}</div>
         </div>
       </div>
       <div class="label-garis"></div>
@@ -236,21 +236,21 @@ function buildLabelHTML(reg, ctx, jumlah) {
       width: ${LABEL_LEBAR_MM}mm;
       height: ${LABEL_TINGGI_MM}mm;
       border: 1px solid #0f6e5f;
-      padding: 3mm 4.5mm;
+      padding: 3.5mm;
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
-    .label-head { display: flex; align-items: center; gap: 2.5mm; }
-    .label-head img { width: 9mm; height: 9mm; object-fit: contain; flex-shrink: 0; }
+    .label-head { display: flex; align-items: center; gap: 2.2mm; }
+    .label-head img { width: 10mm; height: 10mm; object-fit: contain; flex-shrink: 0; }
     .label-head-teks { min-width: 0; }
-    .label-klinik { font-size: 9px; color:#0f6e5f; font-weight:700; text-transform:uppercase; letter-spacing: .3px; line-height:1.2; }
-    .label-alamat { font-size: 7px; color:#444; line-height:1.2; }
-    .label-garis { border-top: 1px solid #0f6e5f; margin: 1.2mm 0; }
-    .label-info { width:100%; border-collapse: collapse; font-size: 7.5px; }
-    .label-info td { padding: 0.4mm 0; vertical-align: top; line-height: 1.15; }
-    .label-info td:first-child { width: 20mm; color:#666; white-space: nowrap; }
-    .label-info td:last-child { font-size: 8px; }
+    .label-klinik { font-size: 9px; color:#0f6e5f; font-weight:700; text-transform:uppercase; letter-spacing: .2px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .label-alamat { font-size: 7px; color:#444; line-height:1.25; }
+    .label-garis { border-top: 1px solid #0f6e5f; margin: 1.6mm 0; }
+    .label-info { width:100%; border-collapse: collapse; font-size: 8px; }
+    .label-info td { padding: 0.9mm 0; vertical-align: top; line-height: 1.2; }
+    .label-info td:first-child { width: 16mm; color:#666; white-space: nowrap; }
+    .label-info td:last-child { font-size: 8.5px; }
     .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .cetak-bar { text-align:center; margin: 16px 0; }
     .cetak-bar button { padding: 8px 22px; font-size:14px; background:#0f6e5f; color:#fff; border:none; border-radius:6px; cursor:pointer; }
