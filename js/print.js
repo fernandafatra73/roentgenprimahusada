@@ -180,7 +180,7 @@ function previewReport(reg, ctx) {
 const LABEL_KOLOM = 1;
 const LABEL_BARIS = 1;
 const LABEL_LEBAR_MM = 100; // 10 cm
-const LABEL_TINGGI_MM = 60; // 6 cm
+const LABEL_TINGGI_MM = 50; // 5 cm
 const LABEL_PER_HALAMAN = LABEL_KOLOM * LABEL_BARIS;
 
 function buildLabelHTML(reg, ctx, jumlah) {
@@ -236,21 +236,21 @@ function buildLabelHTML(reg, ctx, jumlah) {
       width: ${LABEL_LEBAR_MM}mm;
       height: ${LABEL_TINGGI_MM}mm;
       border: 1px solid #0f6e5f;
-      padding: 4mm 5mm;
+      padding: 3mm 4.5mm;
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
-    .label-head { display: flex; align-items: center; gap: 3mm; }
-    .label-head img { width: 11mm; height: 11mm; object-fit: contain; flex-shrink: 0; }
+    .label-head { display: flex; align-items: center; gap: 2.5mm; }
+    .label-head img { width: 9mm; height: 9mm; object-fit: contain; flex-shrink: 0; }
     .label-head-teks { min-width: 0; }
-    .label-klinik { font-size: 9.5px; color:#0f6e5f; font-weight:700; text-transform:uppercase; letter-spacing: .3px; line-height:1.25; }
-    .label-alamat { font-size: 7.5px; color:#444; line-height:1.3; }
-    .label-garis { border-top: 1px solid #0f6e5f; margin: 2mm 0; }
-    .label-info { width:100%; border-collapse: collapse; font-size: 8px; }
-    .label-info td { padding: 1mm 0; vertical-align: top; }
-    .label-info td:first-child { width: 21mm; color:#666; white-space: nowrap; }
-    .label-info td:last-child { font-size: 8.5px; }
+    .label-klinik { font-size: 9px; color:#0f6e5f; font-weight:700; text-transform:uppercase; letter-spacing: .3px; line-height:1.2; }
+    .label-alamat { font-size: 7px; color:#444; line-height:1.2; }
+    .label-garis { border-top: 1px solid #0f6e5f; margin: 1.2mm 0; }
+    .label-info { width:100%; border-collapse: collapse; font-size: 7.5px; }
+    .label-info td { padding: 0.4mm 0; vertical-align: top; line-height: 1.15; }
+    .label-info td:first-child { width: 20mm; color:#666; white-space: nowrap; }
+    .label-info td:last-child { font-size: 8px; }
     .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .cetak-bar { text-align:center; margin: 16px 0; }
     .cetak-bar button { padding: 8px 22px; font-size:14px; background:#0f6e5f; color:#fff; border:none; border-radius:6px; cursor:pointer; }
