@@ -75,6 +75,8 @@
           <button class="navbtn" data-view="rad-master-dokter-sp">Dokter Sp.Rad</button>
           <button class="navbtn" data-view="rad-master-jenis">Jenis &amp; Tarif</button>
           <button class="navbtn" data-view="rad-master-kesan">Kesan</button>
+          <button class="navbtn" data-view="rad-pemeriksaan-catalog">Pemeriksaan</button>
+          <button class="navbtn" data-view="rad-ai">AI Radiolog</button>
           <button class="navbtn" data-view="rad-data-sekunder">Data Sekunder</button>
         </div>
       </div>
@@ -84,6 +86,13 @@
           <button class="navbtn active" data-view="daftar">Pendaftaran</button>
           <button class="navbtn" data-view="master-analis">Analis</button>
           <button class="navbtn" data-view="master-paket">Paket &amp; Harga</button>
+          <button class="navbtn" data-view="data-sekunder">Data Sekunder</button>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <button type="button" class="navbtn nav-dropdown-toggle">Farmasi &#9662;</button>
+        <div class="nav-dropdown-menu">
+          <button class="navbtn" data-view="farmasi-obat">Obat &amp; Stok</button>
         </div>
       </div>
       <div class="nav-dropdown">
@@ -94,6 +103,12 @@
           <button class="navbtn" data-view="admin">Admin</button>
           <button class="navbtn" data-view="pengaturan">Pengaturan</button>
           <button class="navbtn" data-view="users">Pengguna</button>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <button type="button" class="navbtn nav-dropdown-toggle">Keuangan &#9662;</button>
+        <div class="nav-dropdown-menu">
+          <button class="navbtn" data-view="keuangan-sharing">Sharing</button>
         </div>
       </div>
     </div>
@@ -317,6 +332,133 @@
     <div id="paketMasterWrap"></div>
   </section>
 
+  <!-- ======================= VIEW: FARMASI - OBAT & STOK ======================= -->
+  <section id="view-farmasi-obat" class="view">
+    <div class="view-header">
+      <h2>Obat &amp; Stok</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newObatNama" placeholder="Nama obat...">
+      <input type="text" id="newObatSatuan" placeholder="Satuan (strip, botol, tablet...)">
+      <input type="number" id="newObatHargaBeli" placeholder="Harga Beli">
+      <input type="number" id="newObatHargaJual" placeholder="Harga Jual">
+      <input type="number" id="newObatStok" placeholder="Stok Awal">
+      <input type="number" id="newObatStokMin" placeholder="Stok Minimum">
+      <button class="btn btn-primary" id="btnAddObat">Tambah</button>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="cariObat" placeholder="Cari nama obat...">
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Nama Obat</th><th>Satuan</th><th>Harga Beli</th><th>Harga Jual</th>
+            <th>Stok</th><th>Stok Minimum</th><th>Aktif</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblObatBody"></tbody>
+      </table>
+      <div id="emptyObat" class="empty-state" style="display:none">Tidak ada data.</div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: DATA SEKUNDER LABORATORIUM ======================= -->
+  <section id="view-data-sekunder" class="view">
+    <div class="view-header">
+      <h2>Data Sekunder Laboratorium</h2>
+    </div>
+    <div class="toolbar" id="datasekSubnavLab">
+      <button type="button" class="btn btn-light datasek-tab active" data-tab="kwitansi">Kwitansi</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="label">Label</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="pajak">Pajak</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="mingguan">Laporan Mingguan</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="bulanan">Laporan Bulanan</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="tahunan">Laporan Tahunan</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="sharing">Sharing Dokter</button>
+    </div>
+
+    <!-- KWITANSI -->
+    <div class="datasek-panel active" id="datasekKwitansiLab">
+      <div class="toolbar">
+        <input type="text" id="cariKwitansiLab" placeholder="Cari nama / No. RM / No. Registrasi...">
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>No. Reg</th><th>Tanggal</th><th>Nama Pasien</th><th>Total</th><th>Aksi</th></tr></thead>
+          <tbody id="tblKwitansiLabBody"></tbody>
+        </table>
+        <div id="emptyKwitansiLab" class="empty-state" style="display:none">Tidak ada data.</div>
+      </div>
+    </div>
+
+    <!-- LABEL -->
+    <div class="datasek-panel" id="datasekLabelLab">
+      <div class="toolbar">
+        <input type="text" id="cariLabelSekLab" placeholder="Cari nama / No. RM / No. Registrasi...">
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>No. Reg</th><th>Tanggal</th><th>Nama Pasien</th><th>Aksi</th></tr></thead>
+          <tbody id="tblLabelSekLabBody"></tbody>
+        </table>
+        <div id="emptyLabelSekLab" class="empty-state" style="display:none">Tidak ada data.</div>
+      </div>
+    </div>
+
+    <!-- PAJAK -->
+    <div class="datasek-panel" id="datasekPajakLab">
+      <form id="formPajakLab" class="card form-grid">
+        <div class="form-row"><label>Dari Tanggal</label><input type="date" id="pajakDariLab"></div>
+        <div class="form-row"><label>Sampai Tanggal</label><input type="date" id="pajakSampaiLab"></div>
+        <div class="form-row"><label>Persentase Pajak (%)</label><input type="number" id="pajakPersenLab" step="0.1" min="0"></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-light" id="btnSimpanPajakPersenLab">Simpan Persentase</button>
+          <button type="submit" class="btn btn-primary">Hitung</button>
+        </div>
+      </form>
+      <div class="card" id="pajakHasilLab"></div>
+    </div>
+
+    <!-- LAPORAN MINGGUAN -->
+    <div class="datasek-panel" id="datasekMingguanLab">
+      <form id="formMingguanLab" class="card form-grid">
+        <div class="form-row"><label>Pilih Minggu</label><input type="week" id="mingguanWeekLab"></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div class="card" id="mingguanHasilLab"></div>
+    </div>
+
+    <!-- LAPORAN BULANAN -->
+    <div class="datasek-panel" id="datasekBulananLab">
+      <form id="formBulananLab" class="card form-grid">
+        <div class="form-row"><label>Pilih Bulan</label><input type="month" id="bulananMonthLab"></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div class="card" id="bulananHasilLab"></div>
+    </div>
+
+    <!-- LAPORAN TAHUNAN -->
+    <div class="datasek-panel" id="datasekTahunanLab">
+      <form id="formTahunanLab" class="card form-grid">
+        <div class="form-row"><label>Pilih Tahun</label><select id="tahunanYearLab"></select></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div class="card" id="tahunanHasilLab"></div>
+    </div>
+
+    <!-- SHARING DOKTER -->
+    <div class="datasek-panel" id="datasekSharingLab">
+      <form id="formSharingLab" class="card form-grid">
+        <div class="form-row"><label>Dari Tanggal</label><input type="date" id="sharingDariLab"></div>
+        <div class="form-row"><label>Sampai Tanggal</label><input type="date" id="sharingSampaiLab"></div>
+        <div class="form-row"><label>Dokter Pengirim</label><select id="sharingDokterLab"><option value="">Semua Dokter</option></select></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div class="card" id="sharingHasilLab"></div>
+    </div>
+  </section>
+
   <!-- ======================= VIEW: DAFTAR RADIOLOGI ======================= -->
   <section id="view-rad-daftar" class="view">
     <div class="view-header">
@@ -341,7 +483,6 @@
             <th>JK/Umur</th>
             <th>Dokter Pengirim</th>
             <th>Radiografer</th>
-            <th>Dokter Sp.Rad</th>
             <th>Pemeriksaan</th>
             <th>Total</th>
             <th>Status</th>
@@ -436,7 +577,8 @@
 
       <div class="form-row form-row-wide">
         <label>Indikasi Klinis / Catatan</label>
-        <input type="text" id="fRadCatatan" placeholder="opsional">
+        <input type="text" id="fRadCatatan" placeholder="opsional — ketik atau pilih dari daftar Penyakit" list="radCatatanOptions">
+        <datalist id="radCatatanOptions"></datalist>
       </div>
 
       <div class="form-row form-row-wide total-row">
@@ -612,9 +754,120 @@
       <form id="formSharing" class="card form-grid">
         <div class="form-row"><label>Dari Tanggal</label><input type="date" id="sharingDari"></div>
         <div class="form-row"><label>Sampai Tanggal</label><input type="date" id="sharingSampai"></div>
+        <div class="form-row"><label>Dokter Pengirim</label><select id="sharingDokterRad"><option value="">Semua Dokter</option></select></div>
         <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
       </form>
       <div class="card" id="sharingHasil"></div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: KEUANGAN - SHARING ======================= -->
+  <section id="view-keuangan-sharing" class="view">
+    <div class="view-header">
+      <h2>Sharing</h2>
+    </div>
+
+    <!-- HASIL HARIAN -->
+    <div class="card">
+      <h3>Hasil Harian</h3>
+      <form id="formHasilHarian" class="form-grid">
+        <div class="form-row"><label>Tanggal</label><input type="date" id="hasilHarianTanggal"></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div id="hasilHarianHasil"></div>
+    </div>
+
+    <!-- SHARING MINGGUAN -->
+    <div class="card">
+      <h3>Sharing Mingguan (Berdasarkan Dokter Pengirim)</h3>
+      <div class="toolbar" id="keuanganScopeTabs">
+        <button type="button" class="btn btn-light datasek-tab active" data-scope="lab">Laboratorium</button>
+        <button type="button" class="btn btn-light datasek-tab" data-scope="radiologi">Radiologi</button>
+        <button type="button" class="btn btn-light datasek-tab" data-scope="gabungan">Gabungan</button>
+      </div>
+      <form id="formSharingMingguan" class="form-grid">
+        <div class="form-row"><label>Pilih Minggu</label><input type="week" id="sharingMingguanWeek"></div>
+        <div class="form-row"><label>Dokter Pengirim</label><select id="sharingMingguanDokter"><option value="">Semua Dokter</option></select></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div id="sharingMingguanHasil"></div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: PEMERIKSAAN (PEMERIKSAAN / PENYAKIT / KESAN) ======================= -->
+  <section id="view-rad-pemeriksaan-catalog" class="view">
+    <div class="view-header">
+      <h2>Pemeriksaan</h2>
+    </div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-row"><label>Pemeriksaan</label><select id="newPemKesanPemeriksaan"></select></div>
+        <div class="form-row"><label>Nama Penyakit</label><input type="text" id="newPemKesanPenyakit" placeholder="Nama penyakit..."></div>
+        <div class="form-row form-row-wide"><label>Kesan</label><textarea id="newPemKesanKesan" rows="2" placeholder="Kesan..."></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="btnAddPemKesan">Tambah</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="cariPemKesan" placeholder="Cari pemeriksaan / penyakit / kesan...">
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Pemeriksaan</th><th>Nama Penyakit</th><th>Kesan</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblPemKesanBody"></tbody>
+      </table>
+      <div id="emptyPemKesan" class="empty-state" style="display:none">Tidak ada data.</div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: AI RADIOLOG ======================= -->
+  <section id="view-rad-ai" class="view">
+    <div class="view-header">
+      <h2>AI Radiolog</h2>
+    </div>
+
+    <div class="ai-warning-banner">
+      ⚠️ <strong>Draf bantuan AI, BUKAN diagnosis final.</strong> Radiolog wajib meninjau, mengoreksi, dan memvalidasi hasil sebelum digunakan untuk pasien.
+    </div>
+
+    <div class="card">
+      <div class="form-row">
+        <label>Foto Pemeriksaan (rontgen/USG/CT)</label>
+        <input type="file" id="aiRadiologFoto" accept="image/*">
+      </div>
+      <img id="aiRadiologPreview" style="display:none; max-width:100%; max-height:320px; margin:10px 0; border-radius:8px; border:1px solid var(--border);">
+      <div class="form-row">
+        <label>Konteks / Indikasi Klinis (opsional)</label>
+        <textarea id="aiRadiologKonteks" rows="2" placeholder="Mis. batuk 2 minggu, curiga TB..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="btnBuatDrafAI">Buat Draf dengan AI</button>
+      </div>
+      <div id="aiRadiologStatus" class="small-text" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card" id="aiRadiologHasilWrap" style="display:none;">
+      <div class="ai-warning-banner">
+        ⚠️ <strong>Ini DRAF, bukan hasil final.</strong> Edit dulu di bawah ini sebelum dikirim ke data pasien.
+      </div>
+      <div class="form-row">
+        <label>Hasil Bacaan (Draf)</label>
+        <textarea id="aiRadiologHasilBacaan" rows="5"></textarea>
+      </div>
+      <div class="form-row">
+        <label>Kesan (Draf)</label>
+        <textarea id="aiRadiologKesan" rows="3"></textarea>
+      </div>
+
+      <h4>Kirim ke Pasien</h4>
+      <div class="form-grid">
+        <div class="form-row"><label>Pendaftaran Radiologi</label><select id="aiRadiologRegSelect"><option value="">-- pilih pendaftaran --</option></select></div>
+        <div class="form-row"><label>Pemeriksaan</label><select id="aiRadiologJenisSelect"><option value="">-- pilih pemeriksaan --</option></select></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="btnKirimDrafKePasien">Kirim ke Kesan Pasien</button>
+      </div>
     </div>
   </section>
 
@@ -810,14 +1063,20 @@
   </div>
 </div>
 
-<!-- ======================= MODAL: FORMAT CETAK HASIL RADIOLOGI ======================= -->
-<div class="modal-overlay" id="modalPrintFormatRad">
+<!-- ======================= MODAL: EDIT SHARING DOKTER (SEBELUM CETAK) ======================= -->
+<div class="modal-overlay" id="modalEditSharing">
   <div class="modal-box modal-box-wide">
-    <p>Pilih cetak hasil untuk:</p>
-    <div id="printFormatRadInfo" class="label-reg-info"></div>
-    <div class="print-format-grid" id="printFormatRadOptions"></div>
+    <p>Edit rincian sharing untuk:</p>
+    <div id="editSharingDokterInfo" class="label-reg-info"></div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>No</th><th>Nama</th><th>Umur</th><th>Alamat</th><th>Pemeriksaan</th><th>Jumlah Sharing</th></tr></thead>
+        <tbody id="editSharingTableBody"></tbody>
+      </table>
+    </div>
     <div class="modal-actions">
-      <button class="btn btn-light" id="printFormatRadCancel">Batal</button>
+      <button class="btn btn-light" id="editSharingCancel">Batal</button>
+      <button class="btn btn-primary" id="editSharingCetak">Cetak</button>
     </div>
   </div>
 </div>

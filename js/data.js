@@ -24,7 +24,9 @@ const DB_KEYS = {
   RAD_KESAN_TEMPLATE: 'rad_kesan_template',
   RAD_BACAAN_TEMPLATE: 'rad_bacaan_template',
   RAD_PAJAK_SETTING: 'rad_pajak_setting',
-  ADMIN: 'lab_admin'
+  ADMIN: 'lab_admin',
+  FARMASI_OBAT: 'farmasi_obat',
+  RAD_PEMERIKSAAN_KESAN: 'rad_pemeriksaan_kesan'
 };
 
 const MODALITAS_LIST = ['X-Ray', 'USG', 'CT-Scan', 'MRI', 'Panoramic Dental', 'Mammografi', 'BNO-IVP', 'Fluoroskopi'];
@@ -37,16 +39,18 @@ const SESSION_KEY = 'lab_session_uid';
 const ROLES = {
   ceo: {
     label: 'CEO', views: [
-      'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket',
+      'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
       'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-data-sekunder',
-      'kasir', 'admin', 'pengaturan', 'users'
+      'kasir', 'admin', 'pengaturan', 'users', 'keuangan-sharing', 'farmasi-obat',
+      'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
   manajer: {
     label: 'Manajer', views: [
-      'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket',
+      'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
       'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-data-sekunder',
-      'kasir', 'admin', 'pengaturan'
+      'kasir', 'admin', 'pengaturan', 'keuangan-sharing', 'farmasi-obat',
+      'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
   karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir'] }
@@ -296,6 +300,29 @@ function defaultJenisRadiologi() {
   ];
 }
 
+function O(nama, satuan, hargaBeli, hargaJual, stok, stokMin) {
+  return { id: uid('obt'), nama, satuan, hargaBeli, hargaJual, stok, stokMin, aktif: true };
+}
+
+function defaultObat() {
+  return [
+    O('Paracetamol 500mg', 'Tablet', 300, 500, 200, 50),
+    O('Amoxicillin 500mg', 'Tablet', 700, 1200, 150, 30),
+    O('CTM (Antihistamin) 4mg', 'Tablet', 150, 300, 300, 50),
+    O('Omeprazole 20mg', 'Kapsul', 1200, 2000, 100, 20),
+    O('Ibuprofen 400mg', 'Tablet', 400, 700, 150, 30),
+    O('Kontras Iodine Non-Ionik', 'Vial', 350000, 500000, 20, 5),
+    O('Barium Sulfat (Kontras BNO/Colon in Loop)', 'Sachet', 85000, 130000, 15, 5),
+    O('Cairan NaCl 0.9% 500ml', 'Botol', 12000, 20000, 50, 10),
+    O('Alkohol Swab', 'Box', 15000, 25000, 40, 10),
+    O('Masker Medis', 'Box', 25000, 40000, 30, 5)
+  ];
+}
+
+function defaultPemeriksaanKesan() {
+  return [];
+}
+
 function defaultDokterRadiologi() {
   return [
     { id: uid('drsp'), nama: 'dr. Andi Wijaya, Sp.Rad', aktif: true },
@@ -366,6 +393,20 @@ const DB = {
   },
   saveJenisRadiologi(list) {
     saveJSON(DB_KEYS.RAD_JENIS, list);
+  },
+
+  getPemeriksaanKesan() {
+    return loadJSON(DB_KEYS.RAD_PEMERIKSAAN_KESAN, defaultPemeriksaanKesan());
+  },
+  savePemeriksaanKesan(list) {
+    saveJSON(DB_KEYS.RAD_PEMERIKSAAN_KESAN, list);
+  },
+
+  getObat() {
+    return loadJSON(DB_KEYS.FARMASI_OBAT, defaultObat());
+  },
+  saveObat(list) {
+    saveJSON(DB_KEYS.FARMASI_OBAT, list);
   },
 
   getDokterRadiologi() {
@@ -450,6 +491,8 @@ const DB = {
     if (!hasKey(DB_KEYS.PAKET)) this.savePaket(defaultPaket());
     if (!hasKey(DB_KEYS.REG)) this.saveRegistrasi([]);
     if (!hasKey(DB_KEYS.USERS)) this.saveUsers(defaultUsers());
+    if (!hasKey(DB_KEYS.FARMASI_OBAT)) this.saveObat(defaultObat());
+    if (!hasKey(DB_KEYS.RAD_PEMERIKSAAN_KESAN)) this.savePemeriksaanKesan(defaultPemeriksaanKesan());
     if (!hasKey(DB_KEYS.RAD_JENIS)) this.saveJenisRadiologi(defaultJenisRadiologi());
     if (!hasKey(DB_KEYS.RAD_DOKTER_SP)) this.saveDokterRadiologi(defaultDokterRadiologi());
     if (!hasKey(DB_KEYS.RAD_RADIOGRAFER)) this.saveRadiografer(defaultRadiografer());

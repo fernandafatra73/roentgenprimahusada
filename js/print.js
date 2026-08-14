@@ -179,21 +179,30 @@ function previewReport(reg, ctx) {
 
 /* ============================ LAPORAN RADIOLOGI ============================ */
 
-/* 4 kombinasi cetak hasil radiologi — semua dengan blok tanda tangan, di atas
-   kertas A4 yang sama, disusun sebagai grid 2x2 di modal pemilihan cetak:
-     A4 Penuh (Cetak Langsung, hanya Kesan) | A4 Penuh (Preview, Hasil Bacaan + Kesan)
-     A4/2 (Cetak Langsung, hanya Kesan)     | A4/2 (Preview, hanya Kesan)
-   Yang "Preview" membuka Print Preview dulu; yang "Cetak Langsung" langsung
-   membuka dialog cetak. */
-const PRINT_FORMAT_RAD_LIST = [
-  { value: 'full-print', label: 'A4 Penuh — Cetak Langsung', ket: 'Hanya Kesan (tanpa Hasil Bacaan), dengan tanda tangan, langsung cetak.', size: 'full', signed: true, kesanOnly: true, combined: false, action: 'print' },
-  { value: 'full-preview', label: 'A4 Penuh — Preview', ket: 'Satu blok Hasil Bacaan + satu blok Kesan (gabungan semua pemeriksaan), dengan tanda tangan — buka Print Preview.', size: 'full', signed: true, kesanOnly: false, combined: true, action: 'preview' },
-  { value: 'half-print', label: 'A4 / 2 — Cetak Langsung', ket: 'Setengah halaman, hanya Kesan, dengan tanda tangan, langsung cetak.', size: 'half', signed: true, kesanOnly: true, combined: false, action: 'print' },
-  { value: 'half-preview', label: 'A4 / 2 — Preview', ket: 'Setengah halaman, hanya Kesan, dengan tanda tangan — buka Print Preview.', size: 'half', signed: true, kesanOnly: true, combined: false, action: 'preview' }
-];
+function buildReportRadHTML(reg, ctx, showPrintBar, tanpaBacaan) {
+  const settings = ctx.settings;
+  const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
+  const dokterSp = (ctx.dokterSpList || []).find(d => d.id === reg.dokterSpId);
 
-function radInfoGridHTML(reg, dokter) {
-  return `
+  let tablesHTML = '';
+  (reg.jenisSnapshot || []).forEach(j => {
+    const rec = (reg.hasil || {})[j.id] || {};
+    const bacaanRow = tanpaBacaan ? '' : `<tr><td style="width:22%;font-weight:600;">Hasil Bacaan</td><td style="white-space:pre-wrap;">${escapeHTML(rec.hasilBacaan) || '-'}</td></tr>`;
+    tablesHTML += `<table class="hasil"><thead>
+      <tr class="kategori-row"><td colspan="2">${escapeHTML(j.nama)}</td></tr>
+      </thead><tbody>
+      ${bacaanRow}
+      <tr><td style="font-weight:600;">Kesan</td><td class="hasil-val" style="white-space:pre-wrap;">${escapeHTML(rec.kesan) || '-'}</td></tr>
+      </tbody></table>`;
+  });
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Hasil Radiologi - ${escapeHTML(reg.nama)}</title>
+  ${printBaseStyles()}
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">HASIL PEMERIKSAAN RADIOLOGI</div>
     <div class="info-grid">
       <div class="lbl">No. Registrasi</div><div>:</div><div>${escapeHTML(reg.noReg)}</div>
       <div class="lbl">Tanggal</div><div>:</div><div>${formatTanggal(reg.tanggal)}</div>
@@ -203,98 +212,28 @@ function radInfoGridHTML(reg, dokter) {
       <div class="lbl">Umur</div><div>:</div><div>${escapeHTML(reg.umur)}</div>
       <div class="lbl">Alamat</div><div>:</div><div>${escapeHTML(reg.alamat)}</div>
       <div class="lbl">Dokter Pengirim</div><div>:</div><div>${escapeHTML(dokter ? dokter.nama : '-')}</div>
-    </div>`;
-}
-
-function radTablesHTML(reg, kesanOnly) {
-  let html = '';
-  (reg.jenisSnapshot || []).forEach(j => {
-    const rec = (reg.hasil || {})[j.id] || {};
-    const bacaanRow = kesanOnly ? '' : `<tr><td style="width:22%;font-weight:600;">Hasil Bacaan</td><td style="white-space:pre-wrap;">${escapeHTML(rec.hasilBacaan) || '-'}</td></tr>`;
-    html += `<table class="hasil"><thead>
-      <tr class="kategori-row"><td colspan="2">${escapeHTML(j.nama)}</td></tr>
-      </thead><tbody>
-      ${bacaanRow}
-      <tr><td style="font-weight:600;">Kesan</td><td class="hasil-val" style="white-space:pre-wrap;">${escapeHTML(rec.kesan) || '-'}</td></tr>
-      </tbody></table>`;
-  });
-  return html;
-}
-
-/* Satu blok Hasil Bacaan + satu blok Kesan, gabungan dari semua pemeriksaan
-   dalam pendaftaran ini — tanpa tabel/judul terpisah per pemeriksaan. */
-function radCombinedTableHTML(reg) {
-  const bacaanParts = [];
-  const kesanParts = [];
-  (reg.jenisSnapshot || []).forEach(j => {
-    const rec = (reg.hasil || {})[j.id] || {};
-    if (String(rec.hasilBacaan || '').trim()) bacaanParts.push(escapeHTML(rec.hasilBacaan).trim());
-    if (String(rec.kesan || '').trim()) kesanParts.push(escapeHTML(rec.kesan).trim());
-  });
-  const bacaanHTML = bacaanParts.length ? bacaanParts.join('\n\n') : '-';
-  const kesanHTML = kesanParts.length ? kesanParts.join('\n\n') : '-';
-  return `<table class="hasil"><tbody>
-    <tr><td style="width:22%;font-weight:600;vertical-align:top;">Hasil Bacaan</td><td style="white-space:pre-wrap;">${bacaanHTML}</td></tr>
-    <tr><td style="font-weight:600;vertical-align:top;">Kesan</td><td class="hasil-val" style="white-space:pre-wrap;">${kesanHTML}</td></tr>
-    </tbody></table>`;
-}
-
-function buildReportRadHTML(reg, ctx, showPrintBar, size, signed, kesanOnly, combined) {
-  size = size || 'full';
-  signed = signed !== false;
-  kesanOnly = !!kesanOnly;
-  combined = !!combined;
-
-  const settings = ctx.settings;
-  const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
-  const dokterSp = (ctx.dokterSpList || []).find(d => d.id === reg.dokterSpId);
-
-  const extraStyle = size === 'half' ? `
-    <style>
-      .sheet { max-width: 400px; }
-      .kop img { width: 46px; height: 46px; }
-      .kop-nama { font-size: 15px; }
-      .kop-alamat { font-size: 10px; }
-      .judul { font-size: 12.5px; margin: 4px 0 10px; }
-      .info-grid { font-size: 11px; grid-template-columns: 88px 8px 1fr 88px 8px 1fr; }
-      table.hasil { font-size: 11px; }
-      table.hasil th, table.hasil td { padding: 3px 6px; }
-    </style>` : '';
-
-  const footerHTML = signed ? `
+    </div>
+    <div style="font-size:13px; margin: -6px 0 14px;"><strong>Klinis</strong> : ${escapeHTML(reg.catatan) || '-'}</div>
+    ${tablesHTML}
     <div class="footer-sign">
       <div class="sign-box">
         <div>Dokter Spesialis Radiologi,</div>
         <div class="sign-space"></div>
         <div><strong>${escapeHTML(dokterSp ? dokterSp.nama : '-')}</strong></div>
       </div>
-    </div>` : '';
-
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
-  <title>Hasil Radiologi - ${escapeHTML(reg.nama)}</title>
-  ${printBaseStyles()}
-  ${extraStyle}
-  </head><body>
-  <div class="sheet">
-    ${buildKopHTML(settings)}
-    <div class="judul">HASIL PEMERIKSAAN RADIOLOGI</div>
-    ${radInfoGridHTML(reg, dokter)}
-    <div style="font-size:13px; margin: -6px 0 14px;"><strong>Klinis</strong> : ${escapeHTML(reg.catatan) || '-'}</div>
-    ${combined ? radCombinedTableHTML(reg) : radTablesHTML(reg, kesanOnly)}
-    ${footerHTML}
+    </div>
     ${showPrintBar ? `<div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>` : ''}
-    <div style="position:fixed; bottom:15mm; left:0; right:0; text-align:center; font-size:11px; text-decoration:underline;">Cepat, tepat dan akurat</div>
   </div>
   </body></html>`;
 }
 
-function printReportRad(reg, ctx, size, signed, kesanOnly, combined) {
-  const html = buildReportRadHTML(reg, ctx, false, size, signed, kesanOnly, combined);
+function printReportRad(reg, ctx, tanpaBacaan) {
+  const html = buildReportRadHTML(reg, ctx, false, tanpaBacaan);
   openPrintWindow(html, true);
 }
 
-function previewReportRad(reg, ctx, size, signed, kesanOnly, combined) {
-  const html = buildReportRadHTML(reg, ctx, true, size, signed, kesanOnly, combined);
+function previewReportRad(reg, ctx, tanpaBacaan) {
+  const html = buildReportRadHTML(reg, ctx, true, tanpaBacaan);
   openPrintWindow(html, false);
 }
 
@@ -509,5 +448,56 @@ function printLaporanContainer(containerSelector, judul, periodeLabel) {
     <div style="margin-top:14px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')} — ${escapeHTML(settings.penanggungJawab)}</div>
   </div>
   </body></html>`;
+  openPrintWindow(html, true);
+}
+
+/* ============================ LAPORAN SHARING DOKTER PENGIRIM ============================ */
+/* Satu lembar per dokter pengirim: daftar pasien yang dirujuk beserta nominal
+   sharing masing-masing, ditandatangani Admin. Dipakai oleh Sharing Dokter
+   Laboratorium, Radiologi, maupun Keuangan (gabungan) — formatnya sama. */
+function buildLaporanSharingDokterHTML(dokterNama, rows, totalSharing, periodeLabel) {
+  const settings = DB.getSettings();
+  const rowsHTML = rows.map((r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${escapeHTML(r.nama)}</td>
+      <td>${escapeHTML(r.umur)}</td>
+      <td>${escapeHTML(r.alamat)}</td>
+      <td>${escapeHTML(r.pemeriksaan)}</td>
+      <td class="rp-value">${formatRupiah(r.jumlahSharing)}</td>
+    </tr>`).join('') || `<tr><td colspan="6" class="empty-state">Tidak ada data.</td></tr>`;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Laporan Sharing Dokter Pengirim - ${escapeHTML(dokterNama)}</title>
+  ${printBaseStyles()}
+  <style>
+    table.hasil tfoot td { border: 1px solid #999; padding: 5px 8px; }
+    .rp-value { color: #0b3d91; font-weight: 700; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">LAPORAN SHARING DOKTER PENGIRIM</div>
+    ${periodeLabel ? `<div style="text-align:center; font-size:12.5px; margin:-8px 0 14px;">${escapeHTML(periodeLabel)}</div>` : ''}
+    <div style="font-size:14px; margin-bottom:14px;"><strong>Dokter Pengirim :</strong> ${escapeHTML(dokterNama)}</div>
+    <table class="hasil">
+      <thead><tr><th>No</th><th>Nama</th><th>Umur</th><th>Alamat</th><th>Pemeriksaan</th><th>Jumlah Sharing</th></tr></thead>
+      <tbody>${rowsHTML}</tbody>
+      <tfoot><tr><td colspan="5" style="text-align:right; font-weight:700;">Total Sharing</td><td class="rp-value">${formatRupiah(totalSharing)}</td></tr></tfoot>
+    </table>
+    <div class="footer-sign">
+      <div class="sign-box">
+        <div>Admin,</div>
+        <div class="sign-space"></div>
+        <div>&nbsp;</div>
+      </div>
+    </div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printLaporanSharingDokter(dokterNama, rows, totalSharing, periodeLabel) {
+  const html = buildLaporanSharingDokterHTML(dokterNama, rows, totalSharing, periodeLabel);
   openPrintWindow(html, true);
 }

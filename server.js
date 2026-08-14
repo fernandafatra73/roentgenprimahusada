@@ -9,9 +9,12 @@
    sama sekali, hanya tempat penyimpanannya.
    ========================================================================== */
 
+try { process.loadEnvFile(); } catch (e) { /* .env opsional — abaikan kalau tidak ada */ }
+
 const express = require('express');
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const PORT = process.env.PORT || 8791;
 const DB_FILE = path.join(__dirname, 'data.sqlite');
@@ -32,7 +35,7 @@ const stmtUpsert = db.prepare(`
 const stmtDelete = db.prepare('DELETE FROM kv_store WHERE key = ?');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '20mb' }));
 
 // Ambil semua data sekaligus — dipakai saat aplikasi pertama kali dimuat
 // supaya tidak perlu satu request per kunci data.
@@ -61,9 +64,81 @@ app.delete('/api/kv/:key', (req, res) => {
   res.json({ ok: true });
 });
 
+/* ==========================================================================
+   AI Radiolog — draf Hasil Bacaan & Kesan dari foto pemeriksaan radiologi,
+   dibuat AI (Claude) sebagai BANTUAN AWAL, bukan diagnosis final. Butuh
+   ANTHROPIC_API_KEY di file .env (lihat .env.example).
+   ========================================================================== */
+
+const anthropicClient = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
+
+const AI_RADIOLOG_SYSTEM_PROMPT = `Anda adalah asisten AI yang membantu radiolog membuat DRAF AWAL hasil bacaan dan kesan dari foto pemeriksaan radiologi (rontgen/USG/CT).
+
+PENTING: Ini BUKAN diagnosis final. Radiolog manusia WAJIB meninjau, mengoreksi, dan memvalidasi draf ini sebelum digunakan untuk pasien sungguhan. Jangan pernah menyatakan kepastian diagnosis — gunakan bahasa hati-hati seperti "tampak", "curiga", "perlu korelasi klinis lebih lanjut", dan sebutkan keterbatasan bila gambar kurang jelas.
+
+Balas HANYA dengan format berikut, tanpa kalimat pembuka/penutup lain:
+HASIL BACAAN:
+<deskripsi temuan pada gambar>
+KESAN:
+<ringkasan kesan, tetap dengan bahasa hati-hati>`;
+
+app.post('/api/ai-radiolog', async (req, res) => {
+  if (!anthropicClient) {
+    res.status(503).json({ error: 'ANTHROPIC_API_KEY belum diatur di file .env server. Salin .env.example menjadi .env lalu isi API key, kemudian restart server.' });
+    return;
+  }
+  const { imageBase64, mediaType, catatan } = req.body || {};
+  if (!imageBase64 || !mediaType) {
+    res.status(400).json({ error: 'Body harus berisi imageBase64 dan mediaType.' });
+    return;
+  }
+
+  try {
+    const userText = catatan
+      ? `Konteks/indikasi klinis: ${catatan}\n\nBuatkan draf Hasil Bacaan dan Kesan dari foto pemeriksaan radiologi ini.`
+      : 'Buatkan draf Hasil Bacaan dan Kesan dari foto pemeriksaan radiologi ini.';
+
+    const message = await anthropicClient.messages.create({
+      model: 'claude-opus-5',
+      max_tokens: 8192,
+      output_config: { effort: 'high' },
+      system: AI_RADIOLOG_SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+          { type: 'text', text: userText }
+        ]
+      }]
+    });
+
+    if (message.stop_reason === 'refusal') {
+      res.status(422).json({ error: 'AI menolak memproses gambar ini. Coba gambar lain atau tulis manual.' });
+      return;
+    }
+
+    const textBlock = message.content.find(b => b.type === 'text');
+    const text = textBlock ? textBlock.text : '';
+    const bacaanMatch = text.match(/HASIL BACAAN:\s*([\s\S]*?)\s*KESAN:/i);
+    const kesanMatch = text.match(/KESAN:\s*([\s\S]*)$/i);
+
+    res.json({
+      hasilBacaan: bacaanMatch ? bacaanMatch[1].trim() : text.trim(),
+      kesan: kesanMatch ? kesanMatch[1].trim() : '',
+      raw: text
+    });
+  } catch (err) {
+    console.error('AI Radiolog error:', err);
+    res.status(500).json({ error: 'Gagal memanggil AI: ' + (err.message || 'kesalahan tidak diketahui') });
+  }
+});
+
 app.use(express.static(__dirname));
 
 app.listen(PORT, () => {
   console.log(`Server berjalan di http://localhost:${PORT}`);
   console.log(`Database SQLite: ${DB_FILE}`);
+  console.log(anthropicClient ? 'AI Radiolog: ANTHROPIC_API_KEY terdeteksi.' : 'AI Radiolog: ANTHROPIC_API_KEY belum diatur (fitur nonaktif).');
 });
