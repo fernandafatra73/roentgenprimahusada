@@ -200,16 +200,18 @@ function buildReportRadHTML(reg, ctx, showPrintBar) {
   return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
   <title>Hasil Radiologi - ${escapeHTML(reg.nama)}</title>
   <style>
-    @page { size: 150mm 210mm; margin: 10mm; }
+    @page { size: A4; margin: 10mm; }
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 12px; }
     .rad-sheet { width: 100%; }
-    .rad-header-row { display: flex; gap: 6mm; align-items: stretch; margin-bottom: 4mm; }
-    .rad-kop-box { flex: 1; border: 1.5px solid #111; border-radius: 4px; padding: 3mm 4mm; display: flex; align-items: center; gap: 3mm; }
+    .rad-header-row { display: flex; gap: 6mm; align-items: flex-start; margin-bottom: 4mm; }
+    .rad-kop-col { flex: 1; }
+    .rad-kop-box { border: 1.5px solid #111; border-radius: 4px; margin: 0; padding: 1mm 4mm 3mm; }
+    .rad-kop-box legend { font-size: 10px; font-weight: 700; letter-spacing: .3px; padding: 0 1.5mm; }
+    .rad-kop-inner { display: flex; align-items: center; gap: 3mm; }
     .rad-kop-box img { width: 14mm; height: 14mm; object-fit: contain; flex-shrink: 0; }
-    .rad-kop-sub { font-size: 10px; font-weight: 700; letter-spacing: .3px; }
     .rad-kop-nama { font-size: 19px; font-weight: 800; color: #1155cc; line-height: 1.15; }
-    .rad-kop-alamat { font-size: 9.5px; margin-top: 1mm; }
+    .rad-kop-alamat { font-size: 9.5px; margin-top: 1.5mm; }
     .rad-kepada-box { flex: 0 0 42mm; border: 1.5px solid #111; border-radius: 4px; padding: 3mm; font-size: 10.5px; line-height: 1.7; }
     table.rad-info { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 4mm; }
     table.rad-info td { padding: 1.6mm 1mm; border-bottom: 1px solid #999; vertical-align: top; }
@@ -232,13 +234,15 @@ function buildReportRadHTML(reg, ctx, showPrintBar) {
   </head><body>
   <div class="rad-sheet">
     <div class="rad-header-row">
-      <div class="rad-kop-box">
-        <img src="${settings.logo}" alt="logo">
-        <div>
-          <div class="rad-kop-sub">KLINIK ROENTGEN DAN USG</div>
-          <div class="rad-kop-nama">${escapeHTML(settings.namaKlinik)}</div>
-          <div class="rad-kop-alamat">${escapeHTML(settings.alamat)} Telp. ${escapeHTML(settings.telp)}</div>
-        </div>
+      <div class="rad-kop-col">
+        <fieldset class="rad-kop-box">
+          <legend>KLINIK ROENTGEN DAN USG</legend>
+          <div class="rad-kop-inner">
+            <img src="${settings.logo}" alt="logo">
+            <div class="rad-kop-nama">${escapeHTML(settings.namaKlinik)}</div>
+          </div>
+        </fieldset>
+        <div class="rad-kop-alamat">${escapeHTML(settings.alamat)} Telp. ${escapeHTML(settings.telp)}</div>
       </div>
       <div class="rad-kepada-box">
         <div>Kepada Yang terhormat</div>
