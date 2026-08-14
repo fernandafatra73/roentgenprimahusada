@@ -899,6 +899,37 @@ function printCtxRad() {
   };
 }
 
+function openPrintFormatModalRad(reg) {
+  $('#printFormatRadInfo').innerHTML = `<strong>${escapeHTML(reg.nama)}</strong><br>No.RM: ${escapeHTML(reg.noRM)} — ${formatTanggal(reg.tanggal)}`;
+  const optsWrap = $('#printFormatRadOptions');
+  optsWrap.innerHTML = PRINT_FORMAT_RAD_LIST.map((f, i) => `
+    <button type="button" class="print-format-card" data-idx="${i}">
+      <strong>${escapeHTML(f.label)}</strong>
+      <span class="small-text">${escapeHTML(f.ket)}</span>
+    </button>`).join('');
+
+  const modal = $('#modalPrintFormatRad');
+  modal.classList.add('show');
+  const cancelBtn = $('#printFormatRadCancel');
+
+  const cleanup = () => {
+    modal.classList.remove('show');
+    optsWrap.removeEventListener('click', onCardClick);
+    cancelBtn.removeEventListener('click', onCancel);
+  };
+  const onCardClick = (e) => {
+    const card = e.target.closest('.print-format-card');
+    if (!card) return;
+    const f = PRINT_FORMAT_RAD_LIST[Number(card.dataset.idx)];
+    if (f.action === 'preview') previewReportRad(reg, printCtxRad(), f.size, f.signed, f.kesanOnly, f.combined);
+    else printReportRad(reg, printCtxRad(), f.size, f.signed, f.kesanOnly, f.combined);
+    cleanup();
+  };
+  const onCancel = () => cleanup();
+  optsWrap.addEventListener('click', onCardClick);
+  cancelBtn.addEventListener('click', onCancel);
+}
+
 function renderDaftarRad() {
   const list = DB.getRegistrasiRadiologi().slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   const dokterList = DB.getDokter();
@@ -945,8 +976,7 @@ function renderDaftarRad() {
     aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openFormRad(r.id)));
     aksiCell.appendChild(makeBtn('Edit Rad', 'btn-danger', () => openRadEdit2(r.id)));
     aksiCell.appendChild(makeBtn('Hasil', 'btn-secondary', () => openHasilRad(r.id)));
-    aksiCell.appendChild(makeBtn('Preview', 'btn-light', () => previewReportRad(r, printCtxRad())));
-    aksiCell.appendChild(makeBtn('Print', 'btn-primary', () => printReportRad(r, printCtxRad())));
+    aksiCell.appendChild(makeBtn('Cetak Hasil', 'btn-primary', () => openPrintFormatModalRad(r)));
     aksiCell.appendChild(makeBtn('Label', 'btn-light', () => openLabelModal(r)));
     if (currentUser && currentUser.role !== 'karyawan') {
       aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', () => hapusRegistrasiRad(r.id)));
@@ -1174,8 +1204,10 @@ function openHasilRad(regId) {
 
   const wrap = $('#hasilRadWrap');
   wrap.innerHTML = '';
+  const kesanTemplateMap = DB.getKesanTemplate();
   (reg.jenisSnapshot || []).forEach(j => {
     const rec = (reg.hasil || {})[j.id] || { hasilBacaan: '', kesan: '' };
+    const kesanOptions = (kesanTemplateMap[j.id] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
     const card = document.createElement('div');
     card.className = 'rad-exam-card';
     card.innerHTML = `
@@ -1183,6 +1215,11 @@ function openHasilRad(regId) {
       <label>Hasil Bacaan / Temuan</label>
       <textarea rows="3" class="rad-temuan-input" data-jenisid="${j.id}">${escapeHTML(rec.hasilBacaan)}</textarea>
       <label>Kesan</label>
+      ${kesanOptions.length ? `
+      <select class="rad-kesan-template-select" data-jenisid="${j.id}">
+        <option value="">-- pilih dari kesan tersimpan (opsional) --</option>
+        ${kesanOptions.map(t => `<option value="${t.id}">${escapeHTML(t.kesan.length > 70 ? t.kesan.slice(0, 70) + '…' : t.kesan)}</option>`).join('')}
+      </select>` : ''}
       <textarea rows="2" class="rad-kesan-input" data-jenisid="${j.id}">${escapeHTML(rec.kesan)}</textarea>
       <div class="aksi-cell"></div>
     `;
@@ -1192,6 +1229,16 @@ function openHasilRad(regId) {
 
   showView('rad-hasil');
 }
+
+$('#hasilRadWrap').addEventListener('change', (e) => {
+  const sel = e.target.closest('.rad-kesan-template-select');
+  if (!sel || !sel.value) return;
+  const jenisId = sel.dataset.jenisid;
+  const entry = (DB.getKesanTemplate()[jenisId] || []).find(t => t.id === sel.value);
+  if (!entry) return;
+  const ta = $(`#hasilRadWrap .rad-kesan-input[data-jenisid="${jenisId}"]`);
+  if (ta) ta.value = entry.kesan;
+});
 
 async function hapusHasilTestRad(regId, jenisId) {
   const ok = await confirmAsync('Hapus pemeriksaan ini dari hasil pasien?');
@@ -1219,11 +1266,32 @@ $('#formHasilRad').addEventListener('submit', (e) => {
     if (!hasil[id]) hasil[id] = {};
     hasil[id].hasilBacaan = inp.value.trim();
   });
+
+  const kesanTemplates = DB.getKesanTemplate();
   $all('.rad-kesan-input').forEach(inp => {
     const id = inp.dataset.jenisid;
+    const teks = inp.value.trim();
     if (!hasil[id]) hasil[id] = {};
-    hasil[id].kesan = inp.value.trim();
+    hasil[id].kesan = teks;
+    if (!teks) return;
+    if (!kesanTemplates[id]) kesanTemplates[id] = [];
+    const existing = kesanTemplates[id].find(t => t.kesan.trim() === teks);
+    if (existing) {
+      existing.patientRegId = reg.id;
+      existing.patientNama = reg.nama;
+      existing.patientNoRM = reg.noRM;
+    } else {
+      kesanTemplates[id].push({
+        id: uid('ks'),
+        kesan: teks,
+        createdAt: Date.now(),
+        patientRegId: reg.id,
+        patientNama: reg.nama,
+        patientNoRM: reg.noRM
+      });
+    }
   });
+  DB.saveKesanTemplate(kesanTemplates);
 
   reg.hasil = hasil;
   reg.updatedAt = Date.now();
@@ -1239,8 +1307,6 @@ let hasilRegRad2Id = null;
 let radEdit2Items = {};
 let radEdit2JenisMap = {};
 let activeRadEdit2JenisId = null;
-let editingKesanTableId = null;
-let editingBacaanTableId = null;
 
 function accordionBadgeHTML(jenisId) {
   const st = radEdit2Items[jenisId];
@@ -1250,94 +1316,13 @@ function accordionBadgeHTML(jenisId) {
     : `<span class="accordion-badge">${formatRupiah(j.harga)}</span>`;
 }
 
-/* Tabel Bacaan per pemeriksaan (Tambah / Edit). Klik salah satu barisnya
-   memindahkan teksnya ke kotak "Tambah Kesan Baru" di Tabel Kesan di bawahnya. */
-function bacaanTableHTML(jenisId) {
-  const list = (DB.getBacaanTemplate()[jenisId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
-  const rows = list.length === 0
-    ? `<tr><td colspan="3" class="delphi-datagrid-empty">Belum ada bacaan tersimpan.</td></tr>`
-    : list.map(entry => {
-        if (editingBacaanTableId === entry.id) {
-          return `
-            <tr data-entryid="${entry.id}">
-              <td colspan="2"><textarea rows="3" class="bacaan-table-edit-input">${escapeHTML(entry.bacaan)}</textarea></td>
-              <td>
-                <button type="button" class="btn btn-sm btn-primary bacaan-table-simpan-btn">Simpan</button>
-                <button type="button" class="btn btn-sm btn-light bacaan-table-batal-btn">Batal</button>
-              </td>
-            </tr>`;
-        }
-        return `
-          <tr class="bacaan-table-row" data-entryid="${entry.id}">
-            <td>${escapeHTML(entry.bacaan)}</td>
-            <td>${new Date(entry.createdAt).toLocaleString('id-ID')}</td>
-            <td><button type="button" class="btn btn-sm btn-light bacaan-table-edit-btn">Edit</button></td>
-          </tr>`;
-      }).join('');
-  return `
-    <div class="delphi-subbox">
-      <div class="delphi-subbox-title">Tabel Bacaan <span class="small-text" style="text-transform:none; font-weight:normal;">(klik baris untuk memindahkan ke Kesan)</span></div>
-      <table class="delphi-datagrid">
-        <thead><tr><th>Bacaan</th><th>Tersimpan</th><th>Aksi</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <textarea rows="3" class="bacaan-table-new-input" placeholder="Tulis bacaan baru untuk pemeriksaan ini..."></textarea>
-      <button type="button" class="btn btn-sm btn-primary bacaan-table-tambah-btn">+ Tambah</button>
-    </div>
-  `;
-}
-
-/* Tabel Kesan per pemeriksaan (Tambah / Edit / Hapus / Copy), memakai bank Kesan
-   yang sama dengan menu "Kesan" — jadi entri di sini juga muncul di sana. */
-function kesanTableHTML(jenisId) {
-  const list = (DB.getKesanTemplate()[jenisId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
-  const rows = list.length === 0
-    ? `<tr><td colspan="3" class="delphi-datagrid-empty">Belum ada kesan tersimpan.</td></tr>`
-    : list.map(entry => {
-        if (editingKesanTableId === entry.id) {
-          return `
-            <tr data-entryid="${entry.id}">
-              <td colspan="2"><textarea rows="3" class="kesan-table-edit-input">${escapeHTML(entry.kesan)}</textarea></td>
-              <td>
-                <button type="button" class="btn btn-sm btn-primary kesan-table-simpan-btn">Simpan</button>
-                <button type="button" class="btn btn-sm btn-light kesan-table-batal-btn">Batal</button>
-              </td>
-            </tr>`;
-        }
-        return `
-          <tr data-entryid="${entry.id}">
-            <td>${escapeHTML(entry.kesan)}</td>
-            <td>${new Date(entry.createdAt).toLocaleString('id-ID')}</td>
-            <td>
-              <button type="button" class="btn btn-sm btn-light kesan-table-edit-btn">Edit</button>
-              <button type="button" class="btn btn-sm btn-danger kesan-table-hapus-btn">Hapus</button>
-              <button type="button" class="btn btn-sm btn-light kesan-table-copy-btn">Copy</button>
-            </td>
-          </tr>`;
-      }).join('');
-  return `
-    <div class="delphi-subbox">
-      <div class="delphi-subbox-title">Tabel Kesan</div>
-      <table class="delphi-datagrid">
-        <thead><tr><th>Kesan</th><th>Tersimpan</th><th>Aksi</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <textarea rows="3" class="kesan-table-new-input" placeholder="Tulis kesan baru untuk pemeriksaan ini..."></textarea>
-      <button type="button" class="btn btn-sm btn-primary kesan-table-tambah-btn">+ Tambah</button>
-    </div>
-  `;
-}
-
-/* Panel per pemeriksaan: pilih apakah masuk ke pendaftaran ini, ditambah tabel
-   Bacaan (Tambah/Edit) dan Tabel Kesan (Tambah/Edit/Hapus/Copy) untuk
-   pemeriksaan tersebut. */
+/* Panel per pemeriksaan: pilih apakah masuk ke pendaftaran ini. */
 function accordionItemBodyHTML(jenisId) {
   const st = radEdit2Items[jenisId];
   const j = radEdit2JenisMap[jenisId];
-  const statusHTML = st.added
+  return st.added
     ? `<div class="delphi-placeholder">&#10003; Pemeriksaan ini sudah termasuk dalam pendaftaran.</div>`
     : `<button type="button" class="btn btn-sm btn-primary accordion-tambah-btn">+ Tambah Pemeriksaan Ini (${formatRupiah(j.harga)})</button>`;
-  return statusHTML + bacaanTableHTML(jenisId) + kesanTableHTML(jenisId);
 }
 
 /* Menyimpan langsung pilihan pemeriksaan ke data pendaftaran, tanpa menunggu
@@ -1439,8 +1424,6 @@ function openRadEdit2(regId) {
   });
 
   activeRadEdit2JenisId = null;
-  editingKesanTableId = null;
-  editingBacaanTableId = null;
   renderRadEdit2Accordion(jenisAll);
   showView('rad-edit2');
 }
@@ -1449,8 +1432,6 @@ $('#radEdit2Wrap').addEventListener('click', (e) => {
   const row = e.target.closest('.delphi-list-item');
   if (row) {
     activeRadEdit2JenisId = row.dataset.jenisid;
-    editingKesanTableId = null;
-    editingBacaanTableId = null;
     $all('#radEdit2Wrap .delphi-list-item').forEach(b => b.classList.toggle('active', b === row));
     renderRadEdit2Panel();
   }
@@ -1466,120 +1447,6 @@ $('#radEdit2Panel').addEventListener('click', (e) => {
     refreshRadEdit2Tab(jid);
     showToast('Pemeriksaan ditambahkan.');
     renderDaftarRad();
-    return;
-  }
-  const bacaanTambahBtn = e.target.closest('.bacaan-table-tambah-btn');
-  if (bacaanTambahBtn) {
-    const textarea = $('#radEdit2Panel .bacaan-table-new-input');
-    const teks = textarea.value.trim();
-    if (!teks) { showToast('Tulis bacaan terlebih dahulu.'); return; }
-    const templates = DB.getBacaanTemplate();
-    if (!templates[jid]) templates[jid] = [];
-    templates[jid].push({ id: uid('bc'), bacaan: teks, createdAt: Date.now() });
-    DB.saveBacaanTemplate(templates);
-    showToast('Bacaan ditambahkan.');
-    renderRadEdit2Panel();
-    return;
-  }
-  const bacaanEditBtn3 = e.target.closest('.bacaan-table-edit-btn');
-  if (bacaanEditBtn3) {
-    editingBacaanTableId = bacaanEditBtn3.closest('tr').dataset.entryid;
-    renderRadEdit2Panel();
-    return;
-  }
-  const bacaanBatalBtn = e.target.closest('.bacaan-table-batal-btn');
-  if (bacaanBatalBtn) {
-    editingBacaanTableId = null;
-    renderRadEdit2Panel();
-    return;
-  }
-  const bacaanSimpanBtn3 = e.target.closest('.bacaan-table-simpan-btn');
-  if (bacaanSimpanBtn3) {
-    const tr = bacaanSimpanBtn3.closest('tr');
-    const entryId = tr.dataset.entryid;
-    const teks = tr.querySelector('.bacaan-table-edit-input').value.trim();
-    if (!teks) { showToast('Bacaan tidak boleh kosong.'); return; }
-    const templates = DB.getBacaanTemplate();
-    const entry = (templates[jid] || []).find(x => x.id === entryId);
-    if (entry) entry.bacaan = teks;
-    DB.saveBacaanTemplate(templates);
-    editingBacaanTableId = null;
-    showToast('Bacaan diperbarui.');
-    renderRadEdit2Panel();
-    return;
-  }
-  const bacaanRow = e.target.closest('.bacaan-table-row');
-  if (bacaanRow) {
-    const entryId = bacaanRow.dataset.entryid;
-    const entry = (DB.getBacaanTemplate()[jid] || []).find(x => x.id === entryId);
-    if (entry) {
-      const kesanTextarea = $('#radEdit2Panel .kesan-table-new-input');
-      if (kesanTextarea) {
-        kesanTextarea.value = entry.bacaan;
-        kesanTextarea.focus();
-        showToast('Bacaan dipindahkan ke kotak Kesan — klik "+ Tambah" untuk menyimpan.');
-      }
-    }
-    return;
-  }
-  const kesanTambahBtn = e.target.closest('.kesan-table-tambah-btn');
-  if (kesanTambahBtn) {
-    const textarea = $('#radEdit2Panel .kesan-table-new-input');
-    const teks = textarea.value.trim();
-    if (!teks) { showToast('Tulis kesan terlebih dahulu.'); return; }
-    const templates = DB.getKesanTemplate();
-    if (!templates[jid]) templates[jid] = [];
-    templates[jid].push({ id: uid('ks'), kesan: teks, createdAt: Date.now() });
-    DB.saveKesanTemplate(templates);
-    showToast('Kesan ditambahkan.');
-    renderRadEdit2Panel();
-    return;
-  }
-  const kesanEditBtn2 = e.target.closest('.kesan-table-edit-btn');
-  if (kesanEditBtn2) {
-    editingKesanTableId = kesanEditBtn2.closest('tr').dataset.entryid;
-    renderRadEdit2Panel();
-    return;
-  }
-  const kesanBatalBtn = e.target.closest('.kesan-table-batal-btn');
-  if (kesanBatalBtn) {
-    editingKesanTableId = null;
-    renderRadEdit2Panel();
-    return;
-  }
-  const kesanSimpanBtn2 = e.target.closest('.kesan-table-simpan-btn');
-  if (kesanSimpanBtn2) {
-    const tr = kesanSimpanBtn2.closest('tr');
-    const entryId = tr.dataset.entryid;
-    const teks = tr.querySelector('.kesan-table-edit-input').value.trim();
-    if (!teks) { showToast('Kesan tidak boleh kosong.'); return; }
-    const templates = DB.getKesanTemplate();
-    const entry = (templates[jid] || []).find(x => x.id === entryId);
-    if (entry) entry.kesan = teks;
-    DB.saveKesanTemplate(templates);
-    editingKesanTableId = null;
-    showToast('Kesan diperbarui.');
-    renderRadEdit2Panel();
-    return;
-  }
-  const kesanHapusBtn2 = e.target.closest('.kesan-table-hapus-btn');
-  if (kesanHapusBtn2) {
-    const entryId = kesanHapusBtn2.closest('tr').dataset.entryid;
-    const templates = DB.getKesanTemplate();
-    templates[jid] = (templates[jid] || []).filter(x => x.id !== entryId);
-    DB.saveKesanTemplate(templates);
-    showToast('Kesan dihapus.');
-    renderRadEdit2Panel();
-    return;
-  }
-  const kesanCopyBtn2 = e.target.closest('.kesan-table-copy-btn');
-  if (kesanCopyBtn2) {
-    const entryId = kesanCopyBtn2.closest('tr').dataset.entryid;
-    const entry = (DB.getKesanTemplate()[jid] || []).find(x => x.id === entryId);
-    if (entry) {
-      copyTextToClipboard(entry.kesan);
-      showToast('Kesan disalin ke clipboard.');
-    }
     return;
   }
 });
@@ -1599,13 +1466,10 @@ $('#formRadEdit2').addEventListener('submit', (e) => {
   const jenisMaster = DB.getJenisRadiologi();
   reg.jenisIds = addedIds;
   reg.jenisSnapshot = addedIds.map(id => JSON.parse(JSON.stringify(jenisMaster.find(j => j.id === id))));
+  const oldHasil = reg.hasil || {};
   const hasil = {};
   addedIds.forEach(id => {
-    hasil[id] = {
-      hasilBacaan: radEdit2Items[id].hasilBacaan.trim(),
-      kesan: radEdit2Items[id].kesan.trim(),
-      savedAt: radEdit2Items[id].savedAt || Date.now()
-    };
+    hasil[id] = oldHasil[id] || { hasilBacaan: '', kesan: '' };
   });
   reg.hasil = hasil;
   reg.totalHarga = reg.jenisSnapshot.reduce((sum, j) => sum + (Number(j.harga) || 0), 0);
@@ -1756,6 +1620,7 @@ function kesanEntryHTML(jenisId, entry) {
           ${entry.patientNama ? `&bull; <button type="button" class="kesan-entry-patient-link" data-regid="${entry.patientRegId}">&#128100; ${escapeHTML(entry.patientNama)} (RM ${escapeHTML(entry.patientNoRM || '-')})</button>` : ''}
         </span>
         <div class="accordion-actions">
+          <button type="button" class="btn btn-sm btn-light kesan-entry-copy-btn">Copy</button>
           <button type="button" class="btn btn-sm btn-light kesan-entry-edit-btn">Edit</button>
           <button type="button" class="btn btn-sm btn-danger kesan-entry-hapus-btn">Hapus</button>
         </div>
@@ -1813,6 +1678,16 @@ $('#kesanTabPanel').addEventListener('click', (e) => {
     DB.saveKesanTemplate(templates);
     showToast('Kesan baru ditambahkan.');
     renderKesanTabPanel();
+    return;
+  }
+  const copyBtn = e.target.closest('.kesan-entry-copy-btn');
+  if (copyBtn) {
+    const entryId = copyBtn.closest('.kesan-entry').dataset.entryid;
+    const entry = (DB.getKesanTemplate()[activeKesanTabId] || []).find(x => x.id === entryId);
+    if (entry) {
+      copyTextToClipboard(entry.kesan);
+      showToast('Kesan disalin ke clipboard.');
+    }
     return;
   }
   const editBtn = e.target.closest('.kesan-entry-edit-btn');

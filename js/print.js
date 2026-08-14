@@ -179,112 +179,122 @@ function previewReport(reg, ctx) {
 
 /* ============================ LAPORAN RADIOLOGI ============================ */
 
-function buildReportRadHTML(reg, ctx, showPrintBar) {
-  const settings = ctx.settings;
-  const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
+/* 4 kombinasi cetak hasil radiologi — semua dengan blok tanda tangan, di atas
+   kertas A4 yang sama, disusun sebagai grid 2x2 di modal pemilihan cetak:
+     A4 Penuh (Cetak Langsung, hanya Kesan) | A4 Penuh (Preview, Hasil Bacaan + Kesan)
+     A4/2 (Cetak Langsung, hanya Kesan)     | A4/2 (Preview, hanya Kesan)
+   Yang "Preview" membuka Print Preview dulu; yang "Cetak Langsung" langsung
+   membuka dialog cetak. */
+const PRINT_FORMAT_RAD_LIST = [
+  { value: 'full-print', label: 'A4 Penuh — Cetak Langsung', ket: 'Hanya Kesan (tanpa Hasil Bacaan), dengan tanda tangan, langsung cetak.', size: 'full', signed: true, kesanOnly: true, combined: false, action: 'print' },
+  { value: 'full-preview', label: 'A4 Penuh — Preview', ket: 'Satu blok Hasil Bacaan + satu blok Kesan (gabungan semua pemeriksaan), dengan tanda tangan — buka Print Preview.', size: 'full', signed: true, kesanOnly: false, combined: true, action: 'preview' },
+  { value: 'half-print', label: 'A4 / 2 — Cetak Langsung', ket: 'Setengah halaman, hanya Kesan, dengan tanda tangan, langsung cetak.', size: 'half', signed: true, kesanOnly: true, combined: false, action: 'print' },
+  { value: 'half-preview', label: 'A4 / 2 — Preview', ket: 'Setengah halaman, hanya Kesan, dengan tanda tangan — buka Print Preview.', size: 'half', signed: true, kesanOnly: true, combined: false, action: 'preview' }
+];
 
-  const pemeriksaanNames = (reg.jenisSnapshot || []).map(j => j.nama).join(', ');
+function radInfoGridHTML(reg, dokter) {
+  return `
+    <div class="info-grid">
+      <div class="lbl">No. Registrasi</div><div>:</div><div>${escapeHTML(reg.noReg)}</div>
+      <div class="lbl">Tanggal</div><div>:</div><div>${formatTanggal(reg.tanggal)}</div>
+      <div class="lbl">Nama Pasien</div><div>:</div><div>${escapeHTML(reg.nama)}</div>
+      <div class="lbl">No. RM</div><div>:</div><div>${escapeHTML(reg.noRM)}</div>
+      <div class="lbl">Jenis Kelamin</div><div>:</div><div>${reg.jk === 'P' ? 'Perempuan' : 'Laki-laki'}</div>
+      <div class="lbl">Umur</div><div>:</div><div>${escapeHTML(reg.umur)}</div>
+      <div class="lbl">Alamat</div><div>:</div><div>${escapeHTML(reg.alamat)}</div>
+      <div class="lbl">Dokter Pengirim</div><div>:</div><div>${escapeHTML(dokter ? dokter.nama : '-')}</div>
+    </div>`;
+}
 
-  let examHTML = '';
+function radTablesHTML(reg, kesanOnly) {
+  let html = '';
   (reg.jenisSnapshot || []).forEach(j => {
     const rec = (reg.hasil || {})[j.id] || {};
-    examHTML += `
-      <div class="rad-exam-block">
-        <div class="rad-exam-title">${escapeHTML(j.nama)}</div>
-        <div class="rad-exam-val">${escapeHTML(rec.hasilBacaan) || '-'}</div>
-        <div class="rad-exam-lbl">Kesan:</div>
-        <div class="rad-exam-val rad-exam-kesan">${escapeHTML(rec.kesan) || '-'}</div>
-      </div>`;
+    const bacaanRow = kesanOnly ? '' : `<tr><td style="width:22%;font-weight:600;">Hasil Bacaan</td><td style="white-space:pre-wrap;">${escapeHTML(rec.hasilBacaan) || '-'}</td></tr>`;
+    html += `<table class="hasil"><thead>
+      <tr class="kategori-row"><td colspan="2">${escapeHTML(j.nama)}</td></tr>
+      </thead><tbody>
+      ${bacaanRow}
+      <tr><td style="font-weight:600;">Kesan</td><td class="hasil-val" style="white-space:pre-wrap;">${escapeHTML(rec.kesan) || '-'}</td></tr>
+      </tbody></table>`;
   });
+  return html;
+}
+
+/* Satu blok Hasil Bacaan + satu blok Kesan, gabungan dari semua pemeriksaan
+   dalam pendaftaran ini — tanpa tabel/judul terpisah per pemeriksaan. */
+function radCombinedTableHTML(reg) {
+  const bacaanParts = [];
+  const kesanParts = [];
+  (reg.jenisSnapshot || []).forEach(j => {
+    const rec = (reg.hasil || {})[j.id] || {};
+    if (String(rec.hasilBacaan || '').trim()) bacaanParts.push(escapeHTML(rec.hasilBacaan).trim());
+    if (String(rec.kesan || '').trim()) kesanParts.push(escapeHTML(rec.kesan).trim());
+  });
+  const bacaanHTML = bacaanParts.length ? bacaanParts.join('\n\n') : '-';
+  const kesanHTML = kesanParts.length ? kesanParts.join('\n\n') : '-';
+  return `<table class="hasil"><tbody>
+    <tr><td style="width:22%;font-weight:600;vertical-align:top;">Hasil Bacaan</td><td style="white-space:pre-wrap;">${bacaanHTML}</td></tr>
+    <tr><td style="font-weight:600;vertical-align:top;">Kesan</td><td class="hasil-val" style="white-space:pre-wrap;">${kesanHTML}</td></tr>
+    </tbody></table>`;
+}
+
+function buildReportRadHTML(reg, ctx, showPrintBar, size, signed, kesanOnly, combined) {
+  size = size || 'full';
+  signed = signed !== false;
+  kesanOnly = !!kesanOnly;
+  combined = !!combined;
+
+  const settings = ctx.settings;
+  const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
+  const dokterSp = (ctx.dokterSpList || []).find(d => d.id === reg.dokterSpId);
+
+  const extraStyle = size === 'half' ? `
+    <style>
+      .sheet { max-width: 400px; }
+      .kop img { width: 46px; height: 46px; }
+      .kop-nama { font-size: 15px; }
+      .kop-alamat { font-size: 10px; }
+      .judul { font-size: 12.5px; margin: 4px 0 10px; }
+      .info-grid { font-size: 11px; grid-template-columns: 88px 8px 1fr 88px 8px 1fr; }
+      table.hasil { font-size: 11px; }
+      table.hasil th, table.hasil td { padding: 3px 6px; }
+    </style>` : '';
+
+  const footerHTML = signed ? `
+    <div class="footer-sign">
+      <div class="sign-box">
+        <div>Dokter Spesialis Radiologi,</div>
+        <div class="sign-space"></div>
+        <div><strong>${escapeHTML(dokterSp ? dokterSp.nama : '-')}</strong></div>
+      </div>
+    </div>` : '';
 
   return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
   <title>Hasil Radiologi - ${escapeHTML(reg.nama)}</title>
-  <style>
-    @page { size: A4; margin: 10mm; }
-    * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 12px; }
-    .rad-sheet { width: 100%; }
-    .rad-header-row { display: flex; gap: 6mm; align-items: flex-start; margin-bottom: 4mm; }
-    .rad-kop-col { flex: 1; }
-    .rad-kop-box { border: 1.5px solid #111; border-radius: 4px; margin: 0; padding: 1mm 4mm 3mm; }
-    .rad-kop-box legend { font-size: 10px; font-weight: 700; letter-spacing: .3px; padding: 0 1.5mm; }
-    .rad-kop-inner { display: flex; align-items: center; gap: 3mm; }
-    .rad-kop-box img { width: 14mm; height: 14mm; object-fit: contain; flex-shrink: 0; }
-    .rad-kop-nama { font-size: 19px; font-weight: 800; color: #1155cc; line-height: 1.15; }
-    .rad-kop-alamat { font-size: 9.5px; margin-top: 1.5mm; }
-    .rad-kepada-box { flex: 0 0 42mm; border: 1.5px solid #111; border-radius: 4px; padding: 3mm; font-size: 10.5px; line-height: 1.7; }
-    table.rad-info { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 4mm; }
-    table.rad-info td { padding: 1.6mm 1mm; border-bottom: 1px solid #999; vertical-align: top; }
-    table.rad-info td.lbl { width: 24mm; font-weight: 600; }
-    table.rad-info td.sep { width: 3mm; }
-    .rad-judul { text-align: center; font-weight: 700; font-size: 13px; text-decoration: underline; margin: 5mm 0 5mm; letter-spacing: .3px; }
-    .rad-exam-block { margin-bottom: 4mm; }
-    .rad-exam-title { font-weight: 700; font-size: 12px; margin-bottom: 1.5mm; }
-    .rad-exam-lbl { font-size: 10.5px; font-weight: 600; margin-top: 2mm; }
-    .rad-exam-val { font-size: 11.5px; white-space: pre-wrap; }
-    .rad-exam-kesan { font-weight: 700; }
-    .rad-footer { display: flex; justify-content: flex-end; margin-top: 12mm; }
-    .rad-footer-box { text-align: right; width: 55mm; font-size: 11.5px; }
-    .rad-sign-space { height: 16mm; }
-    .rad-sign-line { border-top: 1px solid #111; padding-top: 1.5mm; font-weight: 700; letter-spacing: .3px; }
-    .cetak-bar { text-align: center; margin: 4mm 0; }
-    .cetak-bar button { padding: 8px 22px; font-size: 14px; background: #0f6e5f; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-    @media print { .cetak-bar { display: none; } }
-  </style>
+  ${printBaseStyles()}
+  ${extraStyle}
   </head><body>
-  <div class="rad-sheet">
-    <div class="rad-header-row">
-      <div class="rad-kop-col">
-        <fieldset class="rad-kop-box">
-          <legend>KLINIK ROENTGEN DAN USG</legend>
-          <div class="rad-kop-inner">
-            <img src="${settings.logo}" alt="logo">
-            <div class="rad-kop-nama">${escapeHTML(settings.namaKlinik)}</div>
-          </div>
-        </fieldset>
-        <div class="rad-kop-alamat">${escapeHTML(settings.alamat)} Telp. ${escapeHTML(settings.telp)}</div>
-      </div>
-      <div class="rad-kepada-box">
-        <div>Kepada Yang terhormat</div>
-        <div>TS : ${escapeHTML(dokter ? dokter.nama : '-')}</div>
-        <div>Di Tempat</div>
-      </div>
-    </div>
-    <table class="rad-info">
-      <tr>
-        <td class="lbl">Nama Pasien</td><td class="sep">:</td><td>${escapeHTML(reg.nama)}</td>
-        <td class="lbl">Umur</td><td class="sep">:</td><td>${escapeHTML(reg.umur)}</td>
-      </tr>
-      <tr>
-        <td class="lbl">Alamat</td><td class="sep">:</td><td>${escapeHTML(reg.alamat)}</td>
-        <td class="lbl">Tanggal</td><td class="sep">:</td><td>${formatTanggal(reg.tanggal)}</td>
-      </tr>
-      <tr>
-        <td class="lbl">Pemeriksaan</td><td class="sep">:</td><td>${escapeHTML(pemeriksaanNames)}</td>
-        <td class="lbl">No.</td><td class="sep">:</td><td>${escapeHTML(reg.noReg)}</td>
-      </tr>
-    </table>
-    <div class="rad-judul">HASIL PEMERIKSAAN RADIOLOGI</div>
-    ${examHTML}
-    <div class="rad-footer">
-      <div class="rad-footer-box">
-        <div>Salam Sejawat,</div>
-        <div class="rad-sign-space"></div>
-        <div class="rad-sign-line">RADIOLOG</div>
-      </div>
-    </div>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">HASIL PEMERIKSAAN RADIOLOGI</div>
+    ${radInfoGridHTML(reg, dokter)}
+    <div style="font-size:13px; margin: -6px 0 14px;"><strong>Klinis</strong> : ${escapeHTML(reg.catatan) || '-'}</div>
+    ${combined ? radCombinedTableHTML(reg) : radTablesHTML(reg, kesanOnly)}
+    ${footerHTML}
     ${showPrintBar ? `<div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>` : ''}
+    <div style="position:fixed; bottom:15mm; left:0; right:0; text-align:center; font-size:11px; text-decoration:underline;">Cepat, tepat dan akurat</div>
   </div>
   </body></html>`;
 }
 
-function printReportRad(reg, ctx) {
-  const html = buildReportRadHTML(reg, ctx, false);
+function printReportRad(reg, ctx, size, signed, kesanOnly, combined) {
+  const html = buildReportRadHTML(reg, ctx, false, size, signed, kesanOnly, combined);
   openPrintWindow(html, true);
 }
 
-function previewReportRad(reg, ctx) {
-  const html = buildReportRadHTML(reg, ctx, true);
+function previewReportRad(reg, ctx, size, signed, kesanOnly, combined) {
+  const html = buildReportRadHTML(reg, ctx, true, size, signed, kesanOnly, combined);
   openPrintWindow(html, false);
 }
 

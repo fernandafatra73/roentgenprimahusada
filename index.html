@@ -78,27 +78,27 @@
           <button class="navbtn" data-view="rad-data-sekunder">Data Sekunder</button>
         </div>
       </div>
+      <div class="nav-dropdown">
+        <button type="button" class="navbtn nav-dropdown-toggle">Lab &#9662;</button>
+        <div class="nav-dropdown-menu">
+          <button class="navbtn active" data-view="daftar">Pendaftaran</button>
+          <button class="navbtn" data-view="master-analis">Analis</button>
+          <button class="navbtn" data-view="master-paket">Paket &amp; Harga</button>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <button type="button" class="navbtn nav-dropdown-toggle">Umum &#9662;</button>
+        <div class="nav-dropdown-menu">
+          <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
+          <button class="navbtn" data-view="kasir">Kasir</button>
+          <button class="navbtn" data-view="admin">Admin</button>
+          <button class="navbtn" data-view="pengaturan">Pengaturan</button>
+          <button class="navbtn" data-view="users">Pengguna</button>
+        </div>
+      </div>
     </div>
   </div>
   <nav class="topnav">
-    <div class="nav-dropdown">
-      <button type="button" class="navbtn nav-dropdown-toggle">Lab &#9662;</button>
-      <div class="nav-dropdown-menu">
-        <button class="navbtn active" data-view="daftar">Pendaftaran</button>
-        <button class="navbtn" data-view="master-analis">Analis</button>
-        <button class="navbtn" data-view="master-paket">Paket &amp; Harga</button>
-      </div>
-    </div>
-    <div class="nav-dropdown">
-      <button type="button" class="navbtn nav-dropdown-toggle">Umum &#9662;</button>
-      <div class="nav-dropdown-menu">
-        <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
-        <button class="navbtn" data-view="kasir">Kasir</button>
-        <button class="navbtn" data-view="admin">Admin</button>
-        <button class="navbtn" data-view="pengaturan">Pengaturan</button>
-        <button class="navbtn" data-view="users">Pengguna</button>
-      </div>
-    </div>
     <div class="topbar-user">
       <div class="user-info">
         <div class="user-nama" id="loggedUserNama">-</div>
@@ -806,6 +806,18 @@
     <div class="modal-actions">
       <button class="btn btn-light" id="labelCancel">Batal</button>
       <button class="btn btn-primary" id="labelOk">Cetak Label</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= MODAL: FORMAT CETAK HASIL RADIOLOGI ======================= -->
+<div class="modal-overlay" id="modalPrintFormatRad">
+  <div class="modal-box modal-box-wide">
+    <p>Pilih cetak hasil untuk:</p>
+    <div id="printFormatRadInfo" class="label-reg-info"></div>
+    <div class="print-format-grid" id="printFormatRadOptions"></div>
+    <div class="modal-actions">
+      <button class="btn btn-light" id="printFormatRadCancel">Batal</button>
     </div>
   </div>
 </div>

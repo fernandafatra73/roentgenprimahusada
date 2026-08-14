@@ -171,6 +171,14 @@ function defaultPaket() {
       ]
     },
     {
+      id: 'led',
+      nama: 'Laju Endap Darah',
+      harga: 30000,
+      tests: [
+        T('LED', 'mm/jam', 'L: 0-10 | P: 0-15')
+      ]
+    },
+    {
       id: 'kimiadarah',
       nama: 'Kimia Darah',
       harga: 90000,

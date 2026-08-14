@@ -344,6 +344,10 @@ body {
   width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
   font-size: 13px; font-family: inherit; resize: vertical; margin-bottom: 10px;
 }
+.rad-exam-card select.rad-kesan-template-select {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; margin-bottom: 8px; background: #fff;
+}
 .rad-exam-card .aksi-cell { text-align: right; }
 
 /* -------------------------------- Hasil pemeriksaan ---------------------------- */
@@ -388,6 +392,21 @@ body {
 .label-reg-info { background: #f4f7f6; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
 .modal-label-count { font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .modal-label-count input { width: 60px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; }
+
+.modal-box-wide { width: 460px; }
+.print-format-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.print-format-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff; font-family: inherit;
+  padding: 10px 12px; cursor: pointer; transition: border-color .15s, background .15s;
+}
+.print-format-card:hover { border-color: var(--primary); background: #f4f7f6; }
+.print-format-card strong { font-size: 13px; color: var(--primary-dark); }
+.print-format-card .small-text { font-size: 11.5px; color: var(--muted); }
+@media (max-width: 640px) {
+  .modal-box-wide { width: 92vw; }
+  .print-format-grid { grid-template-columns: 1fr; }
+}
 
 /* -------------------------------- Toast ----------------------------------------- */
 
