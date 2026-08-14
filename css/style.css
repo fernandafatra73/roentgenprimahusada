@@ -51,6 +51,12 @@ body {
 .navbtn.active { background: #fff; color: var(--primary-dark); font-weight: 600; border-color: #fff; }
 .navbtn.hidden-role { display: none; }
 
+.nav-sep {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: rgba(255,255,255,.65);
+  padding: 0 2px; align-self: center; font-weight: 700;
+}
+.nav-sep:not(:first-child) { margin-left: 4px; padding-left: 8px; border-left: 1px solid rgba(255,255,255,.3); }
+
 .topbar-user { display: flex; align-items: center; gap: 10px; margin-left: 8px; padding-left: 12px; border-left: 1px solid rgba(255,255,255,.3); }
 .user-info { text-align: right; line-height: 1.25; }
 .user-nama { font-size: 12.5px; font-weight: 700; }
@@ -162,6 +168,21 @@ body {
 .paket-item:hover { background: #eef6f4; }
 .paket-item-nama { flex: 1; }
 .paket-item-harga { color: var(--primary-dark); font-weight: 700; font-size: 12px; }
+
+/* -------------------------------- Jenis pemeriksaan pilihan (radiologi) -------- */
+
+.jenis-group-title { grid-column: 1 / -1; font-weight: 700; color: var(--primary-dark); font-size: 13px; margin: 4px 0 -2px; }
+
+/* -------------------------------- Hasil ekspertise radiologi ------------------- */
+
+.rad-exam-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 14px; background: #fafcfb; }
+.rad-exam-card h4 { margin: 0 0 10px; color: var(--primary-dark); font-size: 14px; }
+.rad-exam-card label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.rad-exam-card textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; resize: vertical; margin-bottom: 10px;
+}
+.rad-exam-card .aksi-cell { text-align: right; }
 
 /* -------------------------------- Hasil pemeriksaan ---------------------------- */
 

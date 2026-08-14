@@ -56,14 +56,21 @@
     <img id="brandLogo" src="" alt="Logo">
     <div>
       <div class="brand-name" id="brandName">LABORATORIUM</div>
-      <div class="brand-sub">Sistem Informasi Laboratorium</div>
+      <div class="brand-sub">Sistem Informasi Laboratorium &amp; Radiologi</div>
     </div>
   </div>
   <nav class="topnav">
+    <span class="nav-sep">Lab</span>
     <button class="navbtn active" data-view="daftar">Pendaftaran</button>
     <button class="navbtn" data-view="master-analis">Analis</button>
-    <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
     <button class="navbtn" data-view="master-paket">Paket &amp; Harga</button>
+    <span class="nav-sep">Radiologi</span>
+    <button class="navbtn" data-view="rad-daftar">Pendaftaran</button>
+    <button class="navbtn" data-view="rad-master-radiografer">Radiografer</button>
+    <button class="navbtn" data-view="rad-master-dokter-sp">Dokter Sp.Rad</button>
+    <button class="navbtn" data-view="rad-master-jenis">Jenis &amp; Tarif</button>
+    <span class="nav-sep">Umum</span>
+    <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
     <button class="navbtn" data-view="pengaturan">Pengaturan</button>
     <button class="navbtn" data-view="users">Pengguna</button>
     <div class="topbar-user">
@@ -264,6 +271,211 @@
       <button class="btn btn-primary" id="btnTambahPaket">+ Paket Baru</button>
     </div>
     <div id="paketMasterWrap"></div>
+  </section>
+
+  <!-- ======================= VIEW: DAFTAR RADIOLOGI ======================= -->
+  <section id="view-rad-daftar" class="view">
+    <div class="view-header">
+      <h2>Pendaftaran Pasien Radiologi</h2>
+      <button class="btn btn-primary" id="btnTambahDaftarRad">+ Pendaftaran Baru</button>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="cariPasienRad" placeholder="Cari nama / No. RM / No. Registrasi...">
+      <input type="date" id="filterTanggalRad">
+      <button class="btn btn-light" id="btnResetFilterRad">Reset</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="tbl" id="tblDaftarRad">
+        <thead>
+          <tr>
+            <th>No. Reg</th>
+            <th>Tanggal</th>
+            <th>No. RM</th>
+            <th>Nama Pasien</th>
+            <th>JK/Umur</th>
+            <th>Dokter Pengirim</th>
+            <th>Radiografer</th>
+            <th>Dokter Sp.Rad</th>
+            <th>Pemeriksaan</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblDaftarRadBody"></tbody>
+      </table>
+      <div id="emptyDaftarRad" class="empty-state" style="display:none">Belum ada data pendaftaran radiologi.</div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: FORM PENDAFTARAN RADIOLOGI ======================= -->
+  <section id="view-rad-form" class="view">
+    <div class="view-header">
+      <h2 id="formTitleRad">Pendaftaran Radiologi Baru</h2>
+      <button class="btn btn-light" data-back="rad-daftar">&larr; Kembali</button>
+    </div>
+
+    <form id="formDaftarRad" class="card form-grid">
+      <input type="hidden" id="fRadRegId">
+
+      <div class="form-row">
+        <label>No. Registrasi</label>
+        <input type="text" id="fRadNoReg" readonly>
+      </div>
+      <div class="form-row">
+        <label>No. Rekam Medis (RM)</label>
+        <div class="input-inline">
+          <input type="text" id="fRadNoRM">
+          <button type="button" class="btn btn-light" id="btnAutoRMRad">Auto</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Tanggal Periksa</label>
+        <input type="date" id="fRadTanggal" required>
+      </div>
+      <div class="form-row">
+        <label>Nama Pasien</label>
+        <input type="text" id="fRadNama" required>
+      </div>
+      <div class="form-row">
+        <label>Tanggal Lahir</label>
+        <input type="date" id="fRadTglLahir">
+      </div>
+      <div class="form-row">
+        <label>Umur</label>
+        <input type="text" id="fRadUmur" placeholder="cth. 35 th">
+      </div>
+      <div class="form-row">
+        <label>Jenis Kelamin</label>
+        <select id="fRadJK">
+          <option value="L">Laki-laki</option>
+          <option value="P">Perempuan</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>No. Telepon</label>
+        <input type="text" id="fRadTelp">
+      </div>
+      <div class="form-row form-row-wide">
+        <label>Alamat</label>
+        <input type="text" id="fRadAlamat">
+      </div>
+
+      <div class="form-row">
+        <label>Dokter Pengirim</label>
+        <div class="input-inline">
+          <select id="fRadDokter"></select>
+          <button type="button" class="btn btn-light" id="btnTambahDokterInlineRad">+</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Radiografer</label>
+        <div class="input-inline">
+          <select id="fRadiografer"></select>
+          <button type="button" class="btn btn-light" id="btnTambahRadiograferInline">+</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Dokter Sp. Radiologi (Ekspertise)</label>
+        <div class="input-inline">
+          <select id="fDokterSp"></select>
+          <button type="button" class="btn btn-light" id="btnTambahDokterSpInline">+</button>
+        </div>
+      </div>
+
+      <div class="form-row form-row-wide">
+        <label>Pilih Jenis Pemeriksaan</label>
+        <div class="paket-grid" id="jenisPilihan"></div>
+      </div>
+
+      <div class="form-row form-row-wide">
+        <label>Indikasi Klinis / Catatan</label>
+        <input type="text" id="fRadCatatan" placeholder="opsional">
+      </div>
+
+      <div class="form-row form-row-wide total-row">
+        <span>Total Harga</span>
+        <strong id="fRadTotalHarga">Rp 0</strong>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Simpan Pendaftaran</button>
+        <button type="button" class="btn btn-light" data-back="rad-daftar">Batal</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ======================= VIEW: HASIL EKSPERTISE RADIOLOGI ======================= -->
+  <section id="view-rad-hasil" class="view">
+    <div class="view-header">
+      <h2>Input Hasil &amp; Ekspertise Radiologi</h2>
+      <button class="btn btn-light" data-back="rad-daftar">&larr; Kembali</button>
+    </div>
+
+    <div class="card" id="hasilRadPasienInfo"></div>
+
+    <form id="formHasilRad" class="card">
+      <div id="hasilRadWrap"></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Simpan Hasil</button>
+        <button type="button" class="btn btn-light" data-back="rad-daftar">Batal</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ======================= VIEW: MASTER JENIS & TARIF RADIOLOGI ======================= -->
+  <section id="view-rad-master-jenis" class="view">
+    <div class="view-header">
+      <h2>Jenis Pemeriksaan &amp; Tarif Radiologi</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newJenisNama" placeholder="Nama pemeriksaan...">
+      <select id="newJenisModalitas"></select>
+      <input type="number" id="newJenisHarga" placeholder="Harga">
+      <button class="btn btn-primary" id="btnAddJenis">Tambah</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama Pemeriksaan</th><th>Modalitas</th><th>Harga</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblJenisRadBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: MASTER RADIOGRAFER ======================= -->
+  <section id="view-rad-master-radiografer" class="view">
+    <div class="view-header">
+      <h2>Data Radiografer</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newRadiograferNama" placeholder="Nama radiografer...">
+      <button class="btn btn-primary" id="btnAddRadiografer">Tambah</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama Radiografer</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblRadiograferBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: MASTER DOKTER SP.RADIOLOGI ======================= -->
+  <section id="view-rad-master-dokter-sp" class="view">
+    <div class="view-header">
+      <h2>Data Dokter Spesialis Radiologi</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newDokterSpNama" placeholder="Nama dokter Sp.Rad...">
+      <button class="btn btn-primary" id="btnAddDokterSp">Tambah</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama Dokter</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblDokterSpBody"></tbody>
+      </table>
+    </div>
   </section>
 
   <!-- ======================= VIEW: PENGATURAN ======================= -->

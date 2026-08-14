@@ -270,13 +270,17 @@ function openLabelModal(reg) {
 
 /* ============================ FORM PENDAFTARAN ============================ */
 
-function isiSelectDokter() {
-  const sel = $('#fDokter');
+function isiSelectDokterInto(selId) {
+  const sel = $(selId);
   const cur = sel.value;
   sel.innerHTML = DB.getDokter().filter(d => d.aktif !== false).map(d =>
     `<option value="${d.id}">${escapeHTML(d.nama)}${d.asal && d.asal !== '-' ? ' — ' + escapeHTML(d.asal) : ''}</option>`
   ).join('');
   if (cur) sel.value = cur;
+}
+
+function isiSelectDokter() {
+  isiSelectDokterInto('#fDokter');
 }
 
 function isiSelectAnalis() {
@@ -752,6 +756,530 @@ $('#btnTambahPaket').addEventListener('click', async () => {
   showToast('Paket baru ditambahkan.');
 });
 
+/* ============================ RADIOLOGI: DAFTAR ============================ */
+
+let editingRegRadId = null;
+let hasilRegRadId = null;
+
+function regStatusRad(reg) {
+  const ids = Object.keys(reg.hasil || {});
+  if (ids.length === 0) return { key: 'belum', label: 'Belum Diperiksa' };
+  const filled = ids.filter(id => {
+    const h = reg.hasil[id] || {};
+    return (h.hasilBacaan || '').toString().trim() !== '' || (h.kesan || '').toString().trim() !== '';
+  }).length;
+  if (filled === 0) return { key: 'belum', label: 'Belum Diperiksa' };
+  if (filled === ids.length) return { key: 'selesai', label: 'Selesai' };
+  return { key: 'sebagian', label: 'Sebagian' };
+}
+
+function printCtxRad() {
+  return {
+    settings: DB.getSettings(),
+    dokterList: DB.getDokter(),
+    radiograferList: DB.getRadiografer(),
+    dokterSpList: DB.getDokterRadiologi()
+  };
+}
+
+function renderDaftarRad() {
+  const list = DB.getRegistrasiRadiologi().slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const dokterList = DB.getDokter();
+  const radiograferList = DB.getRadiografer();
+  const dokterSpList = DB.getDokterRadiologi();
+
+  const q = ($('#cariPasienRad').value || '').toLowerCase().trim();
+  const tgl = $('#filterTanggalRad').value;
+
+  const filtered = list.filter(r => {
+    if (tgl && r.tanggal !== tgl) return false;
+    if (!q) return true;
+    return (r.nama || '').toLowerCase().includes(q) ||
+      (r.noRM || '').toLowerCase().includes(q) ||
+      (r.noReg || '').toLowerCase().includes(q);
+  });
+
+  const tbody = $('#tblDaftarRadBody');
+  tbody.innerHTML = '';
+  $('#emptyDaftarRad').style.display = filtered.length ? 'none' : 'block';
+
+  filtered.forEach(r => {
+    const dokter = dokterList.find(d => d.id === r.dokterId);
+    const radiografer = radiograferList.find(x => x.id === r.radiograferId);
+    const dokterSp = dokterSpList.find(x => x.id === r.dokterSpId);
+    const jenisNames = (r.jenisSnapshot || []).map(j => j.nama).join(', ');
+    const st = regStatusRad(r);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(r.noReg)}</td>
+      <td>${formatTanggal(r.tanggal)}</td>
+      <td>${escapeHTML(r.noRM)}</td>
+      <td>${escapeHTML(r.nama)}</td>
+      <td>${r.jk === 'P' ? 'P' : 'L'} / ${escapeHTML(r.umur || '-')}</td>
+      <td>${escapeHTML(dokter ? dokter.nama : '-')}</td>
+      <td>${escapeHTML(radiografer ? radiografer.nama : '-')}</td>
+      <td>${escapeHTML(dokterSp ? dokterSp.nama : '-')}</td>
+      <td class="small-text">${escapeHTML(jenisNames)}</td>
+      <td>${formatRupiah(r.totalHarga)}</td>
+      <td><span class="badge badge-${st.key}">${st.label}</span></td>
+      <td class="aksi-cell"></td>
+    `;
+    const aksiCell = tr.querySelector('.aksi-cell');
+    aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openFormRad(r.id)));
+    aksiCell.appendChild(makeBtn('Hasil', 'btn-secondary', () => openHasilRad(r.id)));
+    aksiCell.appendChild(makeBtn('Preview', 'btn-light', () => previewReportRad(r, printCtxRad())));
+    aksiCell.appendChild(makeBtn('Print', 'btn-primary', () => printReportRad(r, printCtxRad())));
+    aksiCell.appendChild(makeBtn('Label', 'btn-light', () => openLabelModal(r)));
+    if (currentUser && currentUser.role !== 'karyawan') {
+      aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', () => hapusRegistrasiRad(r.id)));
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+async function hapusRegistrasiRad(id) {
+  const ok = await confirmAsync('Hapus data pendaftaran radiologi ini beserta hasil ekspertisenya?');
+  if (!ok) return;
+  const list = DB.getRegistrasiRadiologi().filter(r => r.id !== id);
+  DB.saveRegistrasiRadiologi(list);
+  renderDaftarRad();
+  showToast('Data pendaftaran radiologi dihapus.');
+}
+
+/* ============================ RADIOLOGI: FORM PENDAFTARAN ============================ */
+
+function isiSelectRadiografer() {
+  const sel = $('#fRadiografer');
+  const cur = sel.value;
+  sel.innerHTML = DB.getRadiografer().filter(r => r.aktif !== false).map(r =>
+    `<option value="${r.id}">${escapeHTML(r.nama)}</option>`
+  ).join('');
+  if (cur) sel.value = cur;
+}
+
+function isiSelectDokterSp() {
+  const sel = $('#fDokterSp');
+  const cur = sel.value;
+  sel.innerHTML = DB.getDokterRadiologi().filter(d => d.aktif !== false).map(d =>
+    `<option value="${d.id}">${escapeHTML(d.nama)}</option>`
+  ).join('');
+  if (cur) sel.value = cur;
+}
+
+function renderJenisPilihan(selectedIds) {
+  const wrap = $('#jenisPilihan');
+  const jenis = DB.getJenisRadiologi().filter(j => j.aktif !== false);
+  let html = '';
+  MODALITAS_LIST.forEach(modalitas => {
+    const items = jenis.filter(j => j.modalitas === modalitas);
+    if (items.length === 0) return;
+    html += `<div class="jenis-group-title">${escapeHTML(modalitas)}</div>`;
+    html += items.map(j => `
+      <label class="paket-item">
+        <input type="checkbox" class="jenis-cb" value="${j.id}" ${selectedIds && selectedIds.includes(j.id) ? 'checked' : ''}>
+        <span class="paket-item-nama">${escapeHTML(j.nama)}</span>
+        <span class="paket-item-harga">${formatRupiah(j.harga)}</span>
+      </label>
+    `).join('');
+  });
+  wrap.innerHTML = html;
+  $all('.jenis-cb').forEach(cb => cb.addEventListener('change', hitungTotalFormRad));
+  hitungTotalFormRad();
+}
+
+function hitungTotalFormRad() {
+  const jenis = DB.getJenisRadiologi();
+  let total = 0;
+  $all('.jenis-cb:checked').forEach(cb => {
+    const j = jenis.find(x => x.id === cb.value);
+    if (j) total += Number(j.harga) || 0;
+  });
+  $('#fRadTotalHarga').textContent = formatRupiah(total);
+}
+
+function openFormRad(regId) {
+  editingRegRadId = regId || null;
+  isiSelectDokterInto('#fRadDokter');
+  isiSelectRadiografer();
+  isiSelectDokterSp();
+
+  const reg = regId ? DB.getRegistrasiRadiologi().find(r => r.id === regId) : null;
+
+  $('#formTitleRad').textContent = reg ? 'Edit Pendaftaran Radiologi — ' + reg.nama : 'Pendaftaran Radiologi Baru';
+  $('#fRadRegId').value = reg ? reg.id : '';
+  $('#fRadNoReg').value = reg ? reg.noReg : DB.nextNoRegRad();
+  $('#fRadNoRM').value = reg ? reg.noRM : '';
+  $('#fRadTanggal').value = reg ? reg.tanggal : new Date().toISOString().slice(0, 10);
+  $('#fRadNama').value = reg ? reg.nama : '';
+  $('#fRadTglLahir').value = reg ? (reg.tglLahir || '') : '';
+  $('#fRadUmur').value = reg ? (reg.umur || '') : '';
+  $('#fRadJK').value = reg ? (reg.jk || 'L') : 'L';
+  $('#fRadTelp').value = reg ? (reg.telp || '') : '';
+  $('#fRadAlamat').value = reg ? (reg.alamat || '') : '';
+  $('#fRadCatatan').value = reg ? (reg.catatan || '') : '';
+
+  renderJenisPilihan(reg ? reg.jenisIds : []);
+
+  if (reg) {
+    $('#fRadDokter').value = reg.dokterId || '';
+    $('#fRadiografer').value = reg.radiograferId || '';
+    $('#fDokterSp').value = reg.dokterSpId || '';
+  }
+
+  showView('rad-form');
+}
+
+$('#fRadTglLahir').addEventListener('change', () => {
+  const v = $('#fRadTglLahir').value;
+  if (v) $('#fRadUmur').value = hitungUmur(v);
+});
+
+$('#btnAutoRMRad').addEventListener('click', () => {
+  $('#fRadNoRM').value = DB.nextNoRM();
+});
+
+$('#btnTambahDokterInlineRad').addEventListener('click', async () => {
+  const nama = await promptAsync('Nama dokter baru:');
+  if (!nama) return;
+  const list = DB.getDokter();
+  const item = { id: uid('dk'), nama, asal: '-', aktif: true };
+  list.push(item);
+  DB.saveDokter(list);
+  isiSelectDokterInto('#fRadDokter');
+  $('#fRadDokter').value = item.id;
+  showToast('Dokter ditambahkan.');
+});
+
+$('#btnTambahRadiograferInline').addEventListener('click', async () => {
+  const nama = await promptAsync('Nama radiografer baru:');
+  if (!nama) return;
+  const list = DB.getRadiografer();
+  const item = { id: uid('rg'), nama, aktif: true };
+  list.push(item);
+  DB.saveRadiografer(list);
+  isiSelectRadiografer();
+  $('#fRadiografer').value = item.id;
+  showToast('Radiografer ditambahkan.');
+});
+
+$('#btnTambahDokterSpInline').addEventListener('click', async () => {
+  const nama = await promptAsync('Nama dokter Sp.Radiologi baru:');
+  if (!nama) return;
+  const list = DB.getDokterRadiologi();
+  const item = { id: uid('drsp'), nama, aktif: true };
+  list.push(item);
+  DB.saveDokterRadiologi(list);
+  isiSelectDokterSp();
+  $('#fDokterSp').value = item.id;
+  showToast('Dokter Sp.Radiologi ditambahkan.');
+});
+
+$('#formDaftarRad').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const selectedIds = $all('.jenis-cb:checked').map(cb => cb.value);
+  if (selectedIds.length === 0) {
+    showToast('Pilih minimal satu jenis pemeriksaan.');
+    return;
+  }
+  const jenisMaster = DB.getJenisRadiologi();
+  const jenisSnapshot = selectedIds.map(id => JSON.parse(JSON.stringify(jenisMaster.find(j => j.id === id))));
+
+  const list = DB.getRegistrasiRadiologi();
+  const existing = editingRegRadId ? list.find(r => r.id === editingRegRadId) : null;
+  const oldHasil = existing ? (existing.hasil || {}) : {};
+
+  const hasil = {};
+  jenisSnapshot.forEach(j => {
+    hasil[j.id] = oldHasil[j.id] || { hasilBacaan: '', kesan: '' };
+  });
+
+  const totalHarga = jenisSnapshot.reduce((sum, j) => sum + (Number(j.harga) || 0), 0);
+
+  const data = {
+    id: existing ? existing.id : uid('regrad'),
+    noReg: $('#fRadNoReg').value,
+    noRM: $('#fRadNoRM').value.trim(),
+    tanggal: $('#fRadTanggal').value,
+    nama: $('#fRadNama').value.trim(),
+    tglLahir: $('#fRadTglLahir').value,
+    umur: $('#fRadUmur').value.trim(),
+    jk: $('#fRadJK').value,
+    telp: $('#fRadTelp').value.trim(),
+    alamat: $('#fRadAlamat').value.trim(),
+    dokterId: $('#fRadDokter').value,
+    radiograferId: $('#fRadiografer').value,
+    dokterSpId: $('#fDokterSp').value,
+    jenisIds: selectedIds,
+    jenisSnapshot,
+    hasil,
+    catatan: $('#fRadCatatan').value.trim(),
+    totalHarga,
+    createdAt: existing ? existing.createdAt : Date.now(),
+    updatedAt: Date.now()
+  };
+
+  if (existing) {
+    const idx = list.findIndex(r => r.id === existing.id);
+    list[idx] = data;
+  } else {
+    list.push(data);
+  }
+  DB.saveRegistrasiRadiologi(list);
+  showToast('Pendaftaran radiologi disimpan.');
+  editingRegRadId = null;
+  showView('rad-daftar');
+  renderDaftarRad();
+});
+
+/* ============================ RADIOLOGI: HASIL & EKSPERTISE ============================ */
+
+function openHasilRad(regId) {
+  const reg = DB.getRegistrasiRadiologi().find(r => r.id === regId);
+  if (!reg) return;
+  hasilRegRadId = regId;
+
+  const dokter = DB.getDokter().find(d => d.id === reg.dokterId);
+  const radiografer = DB.getRadiografer().find(r => r.id === reg.radiograferId);
+  const dokterSp = DB.getDokterRadiologi().find(d => d.id === reg.dokterSpId);
+
+  $('#hasilRadPasienInfo').innerHTML = `
+    <div class="info-mini-grid">
+      <div><strong>${escapeHTML(reg.nama)}</strong> (${reg.jk === 'P' ? 'P' : 'L'}, ${escapeHTML(reg.umur || '-')})</div>
+      <div>No. RM: ${escapeHTML(reg.noRM)} — No. Reg: ${escapeHTML(reg.noReg)}</div>
+      <div>Tanggal: ${formatTanggal(reg.tanggal)}</div>
+      <div>Dokter Pengirim: ${escapeHTML(dokter ? dokter.nama : '-')}</div>
+      <div>Radiografer: ${escapeHTML(radiografer ? radiografer.nama : '-')}</div>
+      <div>Dokter Sp.Radiologi: ${escapeHTML(dokterSp ? dokterSp.nama : '-')}</div>
+    </div>`;
+
+  const wrap = $('#hasilRadWrap');
+  wrap.innerHTML = '';
+  (reg.jenisSnapshot || []).forEach(j => {
+    const rec = (reg.hasil || {})[j.id] || { hasilBacaan: '', kesan: '' };
+    const card = document.createElement('div');
+    card.className = 'rad-exam-card';
+    card.innerHTML = `
+      <h4>${escapeHTML(j.nama)} <span class="small-text">(${escapeHTML(j.modalitas)})</span></h4>
+      <label>Hasil Bacaan / Temuan</label>
+      <textarea rows="3" class="rad-temuan-input" data-jenisid="${j.id}">${escapeHTML(rec.hasilBacaan)}</textarea>
+      <label>Kesan</label>
+      <textarea rows="2" class="rad-kesan-input" data-jenisid="${j.id}">${escapeHTML(rec.kesan)}</textarea>
+      <div class="aksi-cell"></div>
+    `;
+    card.querySelector('.aksi-cell').appendChild(makeBtn('Hapus Pemeriksaan', 'btn-danger', () => hapusHasilTestRad(regId, j.id)));
+    wrap.appendChild(card);
+  });
+
+  showView('rad-hasil');
+}
+
+async function hapusHasilTestRad(regId, jenisId) {
+  const ok = await confirmAsync('Hapus pemeriksaan ini dari hasil pasien?');
+  if (!ok) return;
+  const list = DB.getRegistrasiRadiologi();
+  const reg = list.find(r => r.id === regId);
+  if (!reg) return;
+  reg.jenisSnapshot = (reg.jenisSnapshot || []).filter(j => j.id !== jenisId);
+  reg.jenisIds = (reg.jenisIds || []).filter(id => id !== jenisId);
+  if (reg.hasil) delete reg.hasil[jenisId];
+  DB.saveRegistrasiRadiologi(list);
+  showToast('Pemeriksaan dihapus dari hasil pasien.');
+  openHasilRad(regId);
+}
+
+$('#formHasilRad').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const list = DB.getRegistrasiRadiologi();
+  const reg = list.find(r => r.id === hasilRegRadId);
+  if (!reg) return;
+
+  const hasil = reg.hasil || {};
+  $all('.rad-temuan-input').forEach(inp => {
+    const id = inp.dataset.jenisid;
+    if (!hasil[id]) hasil[id] = {};
+    hasil[id].hasilBacaan = inp.value.trim();
+  });
+  $all('.rad-kesan-input').forEach(inp => {
+    const id = inp.dataset.jenisid;
+    if (!hasil[id]) hasil[id] = {};
+    hasil[id].kesan = inp.value.trim();
+  });
+
+  reg.hasil = hasil;
+  reg.updatedAt = Date.now();
+  DB.saveRegistrasiRadiologi(list);
+  showToast('Hasil ekspertise radiologi disimpan.');
+  showView('rad-daftar');
+  renderDaftarRad();
+});
+
+/* ============================ RADIOLOGI: MASTER JENIS & TARIF ============================ */
+
+function isiSelectModalitas(selId, current) {
+  const sel = $(selId);
+  sel.innerHTML = MODALITAS_LIST.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+  if (current) sel.value = current;
+}
+
+function renderJenisMaster() {
+  isiSelectModalitas('#newJenisModalitas');
+  const list = DB.getJenisRadiologi();
+  const tbody = $('#tblJenisRadBody');
+  tbody.innerHTML = '';
+  list.forEach(j => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="inline-edit" value="${escapeHTML(j.nama)}"></td>
+      <td class="jenis-modalitas-cell"></td>
+      <td><input type="number" class="inline-edit" value="${j.harga}"></td>
+      <td class="center"><input type="checkbox" ${j.aktif !== false ? 'checked' : ''}></td>
+      <td class="aksi-cell"></td>
+    `;
+    const [namaCell, modalitasCell, hargaCell, aktifCell, aksiCell] = tr.children;
+
+    const modSel = document.createElement('select');
+    modSel.className = 'role-select';
+    modSel.innerHTML = MODALITAS_LIST.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+    modSel.value = j.modalitas;
+    modSel.addEventListener('change', (e) => {
+      j.modalitas = e.target.value;
+      DB.saveJenisRadiologi(list);
+      showToast('Modalitas diperbarui.');
+    });
+    modalitasCell.appendChild(modSel);
+
+    namaCell.querySelector('input').addEventListener('change', (e) => {
+      j.nama = e.target.value.trim();
+      DB.saveJenisRadiologi(list);
+      showToast('Nama pemeriksaan diperbarui.');
+    });
+    hargaCell.querySelector('input').addEventListener('change', (e) => {
+      j.harga = Number(e.target.value) || 0;
+      DB.saveJenisRadiologi(list);
+      showToast('Harga diperbarui.');
+    });
+    aktifCell.querySelector('input').addEventListener('change', (e) => {
+      j.aktif = e.target.checked;
+      DB.saveJenisRadiologi(list);
+    });
+    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+      const ok = await confirmAsync(`Hapus jenis pemeriksaan "${j.nama}"?`);
+      if (!ok) return;
+      DB.saveJenisRadiologi(list.filter(x => x.id !== j.id));
+      renderJenisMaster();
+      showToast('Jenis pemeriksaan dihapus.');
+    }));
+    tbody.appendChild(tr);
+  });
+}
+
+$('#btnAddJenis').addEventListener('click', () => {
+  const namaI = $('#newJenisNama');
+  const modalitasI = $('#newJenisModalitas');
+  const hargaI = $('#newJenisHarga');
+  const nama = namaI.value.trim();
+  if (!nama) { showToast('Nama pemeriksaan tidak boleh kosong.'); return; }
+  const list = DB.getJenisRadiologi();
+  list.push({ id: uid('rj'), nama, modalitas: modalitasI.value, harga: Number(hargaI.value) || 0, aktif: true });
+  DB.saveJenisRadiologi(list);
+  namaI.value = '';
+  hargaI.value = '';
+  renderJenisMaster();
+  showToast('Jenis pemeriksaan ditambahkan.');
+});
+
+/* ============================ RADIOLOGI: MASTER RADIOGRAFER ============================ */
+
+function renderRadiografer() {
+  const list = DB.getRadiografer();
+  const tbody = $('#tblRadiograferBody');
+  tbody.innerHTML = '';
+  list.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="inline-edit" value="${escapeHTML(r.nama)}"></td>
+      <td class="center"><input type="checkbox" ${r.aktif !== false ? 'checked' : ''}></td>
+      <td class="aksi-cell"></td>
+    `;
+    const [namaCell, aktifCell, aksiCell] = tr.children;
+    namaCell.querySelector('input').addEventListener('change', (e) => {
+      r.nama = e.target.value.trim();
+      DB.saveRadiografer(list);
+      showToast('Radiografer diperbarui.');
+    });
+    aktifCell.querySelector('input').addEventListener('change', (e) => {
+      r.aktif = e.target.checked;
+      DB.saveRadiografer(list);
+    });
+    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+      const ok = await confirmAsync(`Hapus radiografer "${r.nama}"?`);
+      if (!ok) return;
+      DB.saveRadiografer(list.filter(x => x.id !== r.id));
+      renderRadiografer();
+      showToast('Radiografer dihapus.');
+    }));
+    tbody.appendChild(tr);
+  });
+}
+
+$('#btnAddRadiografer').addEventListener('click', () => {
+  const input = $('#newRadiograferNama');
+  const nama = input.value.trim();
+  if (!nama) { showToast('Nama radiografer tidak boleh kosong.'); return; }
+  const list = DB.getRadiografer();
+  list.push({ id: uid('rg'), nama, aktif: true });
+  DB.saveRadiografer(list);
+  input.value = '';
+  renderRadiografer();
+  showToast('Radiografer ditambahkan.');
+});
+
+/* ============================ RADIOLOGI: MASTER DOKTER SP.RADIOLOGI ============================ */
+
+function renderDokterSp() {
+  const list = DB.getDokterRadiologi();
+  const tbody = $('#tblDokterSpBody');
+  tbody.innerHTML = '';
+  list.forEach(d => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="inline-edit" value="${escapeHTML(d.nama)}"></td>
+      <td class="center"><input type="checkbox" ${d.aktif !== false ? 'checked' : ''}></td>
+      <td class="aksi-cell"></td>
+    `;
+    const [namaCell, aktifCell, aksiCell] = tr.children;
+    namaCell.querySelector('input').addEventListener('change', (e) => {
+      d.nama = e.target.value.trim();
+      DB.saveDokterRadiologi(list);
+      showToast('Dokter Sp.Radiologi diperbarui.');
+    });
+    aktifCell.querySelector('input').addEventListener('change', (e) => {
+      d.aktif = e.target.checked;
+      DB.saveDokterRadiologi(list);
+    });
+    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+      const ok = await confirmAsync(`Hapus dokter "${d.nama}"?`);
+      if (!ok) return;
+      DB.saveDokterRadiologi(list.filter(x => x.id !== d.id));
+      renderDokterSp();
+      showToast('Dokter Sp.Radiologi dihapus.');
+    }));
+    tbody.appendChild(tr);
+  });
+}
+
+$('#btnAddDokterSp').addEventListener('click', () => {
+  const input = $('#newDokterSpNama');
+  const nama = input.value.trim();
+  if (!nama) { showToast('Nama dokter tidak boleh kosong.'); return; }
+  const list = DB.getDokterRadiologi();
+  list.push({ id: uid('drsp'), nama, aktif: true });
+  DB.saveDokterRadiologi(list);
+  input.value = '';
+  renderDokterSp();
+  showToast('Dokter Sp.Radiologi ditambahkan.');
+});
+
 /* =============================== PENGATURAN ================================ */
 
 let pendingLogoDataUrl = null;
@@ -899,8 +1427,9 @@ $all('.navbtn[data-view]').forEach(btn => {
 
 $all('[data-back]').forEach(btn => {
   btn.addEventListener('click', () => {
-    showView(btn.dataset.back);
-    renderDaftar();
+    const target = btn.dataset.back;
+    showView(target);
+    refreshView(target);
   });
 });
 
@@ -914,11 +1443,25 @@ $('#btnResetFilter').addEventListener('click', () => {
   renderDaftar();
 });
 
+$('#btnTambahDaftarRad').addEventListener('click', () => openFormRad(null));
+
+$('#cariPasienRad').addEventListener('input', renderDaftarRad);
+$('#filterTanggalRad').addEventListener('change', renderDaftarRad);
+$('#btnResetFilterRad').addEventListener('click', () => {
+  $('#cariPasienRad').value = '';
+  $('#filterTanggalRad').value = '';
+  renderDaftarRad();
+});
+
 function refreshView(view) {
   if (view === 'daftar') renderDaftar();
   else if (view === 'master-analis') renderAnalis();
   else if (view === 'master-dokter') renderDokter();
   else if (view === 'master-paket') renderPaketMaster();
+  else if (view === 'rad-daftar') renderDaftarRad();
+  else if (view === 'rad-master-jenis') renderJenisMaster();
+  else if (view === 'rad-master-radiografer') renderRadiografer();
+  else if (view === 'rad-master-dokter-sp') renderDokterSp();
   else if (view === 'pengaturan') renderPengaturan();
   else if (view === 'users') renderUsers();
 }

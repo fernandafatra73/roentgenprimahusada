@@ -9,8 +9,14 @@ const DB_KEYS = {
   PAKET: 'lab_paket',
   REG: 'lab_registrasi',
   SEQ: 'lab_seq',
-  USERS: 'lab_users'
+  USERS: 'lab_users',
+  RAD_JENIS: 'rad_jenis',
+  RAD_DOKTER_SP: 'rad_dokter_sp',
+  RAD_RADIOGRAFER: 'rad_radiografer',
+  RAD_REG: 'rad_registrasi'
 };
+
+const MODALITAS_LIST = ['X-Ray', 'USG', 'CT-Scan', 'MRI', 'Panoramic Dental', 'Mammografi', 'BNO-IVP', 'Fluoroskopi'];
 
 const SESSION_KEY = 'lab_session_uid';
 
@@ -18,9 +24,21 @@ const SESSION_KEY = 'lab_session_uid';
    kenyamanan penggunaan bersama satu komputer — bukan otentikasi tingkat
    server, karena aplikasi ini tidak memiliki backend. */
 const ROLES = {
-  ceo: { label: 'CEO', views: ['daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'pengaturan', 'users'] },
-  manajer: { label: 'Manajer', views: ['daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'pengaturan'] },
-  karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil'] }
+  ceo: {
+    label: 'CEO', views: [
+      'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket',
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp',
+      'pengaturan', 'users'
+    ]
+  },
+  manajer: {
+    label: 'Manajer', views: [
+      'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket',
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp',
+      'pengaturan'
+    ]
+  },
+  karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil'] }
 };
 
 const DEFAULT_LOGO =
@@ -207,6 +225,52 @@ function defaultPaket() {
   ];
 }
 
+function J(nama, modalitas, harga) {
+  return { id: uid('rj'), nama, modalitas, harga, aktif: true };
+}
+
+function defaultJenisRadiologi() {
+  return [
+    J('Thorax PA', 'X-Ray', 100000),
+    J('Thorax PA/Lateral', 'X-Ray', 150000),
+    J('Cranium AP/Lateral', 'X-Ray', 150000),
+    J('Abdomen Polos (BNO)', 'X-Ray', 130000),
+    J('Abdomen 3 Posisi', 'X-Ray', 275000),
+    J('Vertebrae Cervical AP/Lateral', 'X-Ray', 180000),
+    J('Vertebrae Lumbal AP/Lateral', 'X-Ray', 180000),
+    J('Pelvis AP', 'X-Ray', 130000),
+    J('Extremitas Atas', 'X-Ray', 120000),
+    J('Extremitas Bawah', 'X-Ray', 120000),
+    J('Genu (Lutut) AP/Lateral', 'X-Ray', 130000),
+    J('Sinus Paranasal (SPN)', 'X-Ray', 140000),
+    J('Panoramic Gigi', 'Panoramic Dental', 175000),
+    J('USG Abdomen Lengkap', 'USG', 220000),
+    J('USG Kandungan (Obstetri)', 'USG', 250000),
+    J('USG Thyroid', 'USG', 180000),
+    J('USG Mammae (Payudara)', 'USG', 220000),
+    J('BNO-IVP', 'BNO-IVP', 550000),
+    J('Mammografi', 'Mammografi', 400000),
+    J('CT-Scan Kepala Non-Kontras', 'CT-Scan', 850000),
+    J('CT-Scan Kepala Kontras', 'CT-Scan', 1350000),
+    J('CT-Scan Thorax', 'CT-Scan', 1400000),
+    J('CT-Scan Abdomen', 'CT-Scan', 1500000)
+  ];
+}
+
+function defaultDokterRadiologi() {
+  return [
+    { id: uid('drsp'), nama: 'dr. Andi Wijaya, Sp.Rad', aktif: true },
+    { id: uid('drsp'), nama: 'dr. Maya Kusuma, Sp.Rad', aktif: true }
+  ];
+}
+
+function defaultRadiografer() {
+  return [
+    { id: uid('rg'), nama: 'Dedi Supriyadi, A.Md.Rad', aktif: true },
+    { id: uid('rg'), nama: 'Nurul Fadilah, A.Md.Rad', aktif: true }
+  ];
+}
+
 /* ------------------------------ API DB ----------------------------------- */
 
 const DB = {
@@ -252,8 +316,36 @@ const DB = {
     saveJSON(DB_KEYS.USERS, list);
   },
 
+  getJenisRadiologi() {
+    return loadJSON(DB_KEYS.RAD_JENIS, defaultJenisRadiologi());
+  },
+  saveJenisRadiologi(list) {
+    saveJSON(DB_KEYS.RAD_JENIS, list);
+  },
+
+  getDokterRadiologi() {
+    return loadJSON(DB_KEYS.RAD_DOKTER_SP, defaultDokterRadiologi());
+  },
+  saveDokterRadiologi(list) {
+    saveJSON(DB_KEYS.RAD_DOKTER_SP, list);
+  },
+
+  getRadiografer() {
+    return loadJSON(DB_KEYS.RAD_RADIOGRAFER, defaultRadiografer());
+  },
+  saveRadiografer(list) {
+    saveJSON(DB_KEYS.RAD_RADIOGRAFER, list);
+  },
+
+  getRegistrasiRadiologi() {
+    return loadJSON(DB_KEYS.RAD_REG, []);
+  },
+  saveRegistrasiRadiologi(list) {
+    saveJSON(DB_KEYS.RAD_REG, list);
+  },
+
   nextNoRM() {
-    let seq = loadJSON(DB_KEYS.SEQ, { rm: 0, reg: 0 });
+    let seq = loadJSON(DB_KEYS.SEQ, { rm: 0, reg: 0, regRad: 0 });
     seq.rm += 1;
     saveJSON(DB_KEYS.SEQ, seq);
     const yr = new Date().getFullYear();
@@ -261,12 +353,21 @@ const DB = {
   },
 
   nextNoReg() {
-    let seq = loadJSON(DB_KEYS.SEQ, { rm: 0, reg: 0 });
+    let seq = loadJSON(DB_KEYS.SEQ, { rm: 0, reg: 0, regRad: 0 });
     seq.reg += 1;
     saveJSON(DB_KEYS.SEQ, seq);
     const now = new Date();
     const ymd = now.toISOString().slice(0, 10).replace(/-/g, '');
     return `REG-${ymd}-${String(seq.reg).padStart(4, '0')}`;
+  },
+
+  nextNoRegRad() {
+    let seq = loadJSON(DB_KEYS.SEQ, { rm: 0, reg: 0, regRad: 0 });
+    seq.regRad = (seq.regRad || 0) + 1;
+    saveJSON(DB_KEYS.SEQ, seq);
+    const now = new Date();
+    const ymd = now.toISOString().slice(0, 10).replace(/-/g, '');
+    return `RAD-${ymd}-${String(seq.regRad).padStart(4, '0')}`;
   },
 
   init() {
@@ -276,6 +377,10 @@ const DB = {
     if (!localStorage.getItem(DB_KEYS.PAKET)) this.savePaket(defaultPaket());
     if (!localStorage.getItem(DB_KEYS.REG)) this.saveRegistrasi([]);
     if (!localStorage.getItem(DB_KEYS.USERS)) this.saveUsers(defaultUsers());
+    if (!localStorage.getItem(DB_KEYS.RAD_JENIS)) this.saveJenisRadiologi(defaultJenisRadiologi());
+    if (!localStorage.getItem(DB_KEYS.RAD_DOKTER_SP)) this.saveDokterRadiologi(defaultDokterRadiologi());
+    if (!localStorage.getItem(DB_KEYS.RAD_RADIOGRAFER)) this.saveRadiografer(defaultRadiografer());
+    if (!localStorage.getItem(DB_KEYS.RAD_REG)) this.saveRegistrasiRadiologi([]);
     this.migrate();
   },
 

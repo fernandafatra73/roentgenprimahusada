@@ -177,6 +177,78 @@ function previewReport(reg, ctx) {
   openPrintWindow(html, false);
 }
 
+/* ============================ LAPORAN RADIOLOGI ============================ */
+
+function buildReportRadHTML(reg, ctx, showPrintBar) {
+  const settings = ctx.settings;
+  const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
+  const radiografer = (ctx.radiograferList || []).find(r => r.id === reg.radiograferId);
+  const dokterSp = (ctx.dokterSpList || []).find(d => d.id === reg.dokterSpId);
+
+  let examHTML = '';
+  (reg.jenisSnapshot || []).forEach(j => {
+    const rec = (reg.hasil || {})[j.id] || {};
+    examHTML += `
+      <div class="exam-block">
+        <div class="exam-title">${escapeHTML(j.nama)} <span class="exam-modalitas">(${escapeHTML(j.modalitas)})</span></div>
+        <div class="exam-field-lbl">Hasil Bacaan / Temuan:</div>
+        <div class="exam-field-val">${escapeHTML(rec.hasilBacaan) || '-'}</div>
+        <div class="exam-field-lbl">Kesan:</div>
+        <div class="exam-field-val exam-kesan">${escapeHTML(rec.kesan) || '-'}</div>
+      </div>`;
+  });
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Hasil Radiologi - ${escapeHTML(reg.nama)}</title>
+  ${printBaseStyles()}
+  <style>
+    .exam-block { border: 1px solid #ccc; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; }
+    .exam-title { font-weight: 700; color: #0f6e5f; font-size: 14px; margin-bottom: 6px; }
+    .exam-modalitas { font-weight: 400; color: #555; font-size: 12px; }
+    .exam-field-lbl { font-size: 11.5px; color: #555; font-weight: 600; margin-top: 6px; }
+    .exam-field-val { font-size: 13px; white-space: pre-wrap; }
+    .exam-kesan { font-weight: 700; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">HASIL PEMERIKSAAN &amp; EKSPERTISE RADIOLOGI</div>
+    <div class="info-grid">
+      <div class="lbl">No. Registrasi</div><div>:</div><div>${escapeHTML(reg.noReg)}</div>
+      <div class="lbl">Tanggal</div><div>:</div><div>${formatTanggal(reg.tanggal)}</div>
+      <div class="lbl">Nama Pasien</div><div>:</div><div>${escapeHTML(reg.nama)}</div>
+      <div class="lbl">No. RM</div><div>:</div><div>${escapeHTML(reg.noRM)}</div>
+      <div class="lbl">Jenis Kelamin</div><div>:</div><div>${reg.jk === 'P' ? 'Perempuan' : 'Laki-laki'}</div>
+      <div class="lbl">Umur</div><div>:</div><div>${escapeHTML(reg.umur)}</div>
+      <div class="lbl">Alamat</div><div>:</div><div>${escapeHTML(reg.alamat)}</div>
+      <div class="lbl">Dokter Pengirim</div><div>:</div><div>${escapeHTML(dokter ? dokter.nama : '-')}</div>
+      <div class="lbl">Radiografer</div><div>:</div><div>${escapeHTML(radiografer ? radiografer.nama : '-')}</div>
+    </div>
+    ${reg.catatan ? `<div style="font-size:12.5px; margin: -6px 0 14px;"><strong>Indikasi Klinis:</strong> ${escapeHTML(reg.catatan)}</div>` : ''}
+    ${examHTML}
+    <div class="footer-sign">
+      <div class="sign-box">
+        <div>Dokter Spesialis Radiologi,</div>
+        <div class="sign-space"></div>
+        <div><strong>${escapeHTML(dokterSp ? dokterSp.nama : '-')}</strong></div>
+      </div>
+    </div>
+    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')} — ${escapeHTML(settings.penanggungJawab)}</div>
+    ${showPrintBar ? `<div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>` : ''}
+  </div>
+  </body></html>`;
+}
+
+function printReportRad(reg, ctx) {
+  const html = buildReportRadHTML(reg, ctx, false);
+  openPrintWindow(html, true);
+}
+
+function previewReportRad(reg, ctx) {
+  const html = buildReportRadHTML(reg, ctx, true);
+  openPrintWindow(html, false);
+}
+
 const LABEL_KOLOM = 1;
 const LABEL_BARIS = 1;
 const LABEL_LEBAR_MM = 80; // 8 cm
