@@ -32,10 +32,15 @@ body {
   gap: 10px;
 }
 
-.topbar-brand { display: flex; align-items: center; gap: 12px; }
+.topbar-brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .topbar-brand img { width: 42px; height: 42px; border-radius: 6px; background: #fff; object-fit: contain; }
 .brand-name { font-weight: 700; font-size: 16px; letter-spacing: .3px; }
 .brand-sub { font-size: 11px; opacity: .85; }
+
+.topbar-brand-radnav {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(255,255,255,.3);
+}
 
 .topnav { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .navbtn {
@@ -50,6 +55,17 @@ body {
 .navbtn:hover { background: rgba(255,255,255,.12); }
 .navbtn.active { background: #fff; color: var(--primary-dark); font-weight: 600; border-color: #fff; }
 .navbtn.hidden-role { display: none; }
+
+.nav-dropdown { position: relative; }
+.nav-dropdown-menu {
+  display: none; position: absolute; top: 100%; left: 0; margin-top: 8px;
+  background: var(--primary-dark); border: 1px solid rgba(255,255,255,.35); border-radius: 8px;
+  padding: 6px; flex-direction: column; gap: 4px; z-index: 50; min-width: 190px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.3);
+}
+.nav-dropdown-menu.show { display: flex; }
+.nav-dropdown-menu .navbtn { width: 100%; text-align: left; border-color: transparent; }
+.nav-dropdown-menu .navbtn:hover { background: rgba(255,255,255,.15); }
 
 .nav-sep {
   font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: rgba(255,255,255,.65);
@@ -144,8 +160,9 @@ body {
 .form-row { display: flex; flex-direction: column; gap: 5px; }
 .form-row-wide { grid-column: 1 / -1; }
 .form-row label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
-.form-row input, .form-row select {
+.form-row input, .form-row select, .form-row textarea {
   padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13.5px; background: #fff;
+  font-family: inherit; resize: vertical;
 }
 .input-inline { display: flex; gap: 6px; }
 .input-inline select, .input-inline input { flex: 1; }
@@ -173,6 +190,151 @@ body {
 
 .jenis-group-title { grid-column: 1 / -1; font-weight: 700; color: var(--primary-dark); font-size: 13px; margin: 4px 0 -2px; }
 
+/* -------------------------------- Edit2 radiologi: akordeon katalog ------------ */
+
+.accordion-item { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+.accordion-header {
+  width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  background: #fafcfb; border: none; padding: 10px 14px; font-size: 13.5px; font-weight: 600;
+  color: var(--text); cursor: pointer; text-align: left;
+}
+.accordion-header:hover { background: #eef6f4; }
+.accordion-badge { font-size: 11.5px; color: var(--primary-dark); font-weight: 700; white-space: nowrap; }
+.accordion-badge-added { color: #1c8a4d; }
+.accordion-body { padding: 12px 14px; border-top: 1px solid var(--border); }
+.accordion-body label, #kesanTabPanel label {
+  display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 4px;
+}
+.accordion-body textarea, #kesanTabPanel > textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; resize: vertical; margin-bottom: 10px;
+}
+.accordion-actions { display: flex; gap: 8px; }
+
+/* -------------------------------- Edit2 radiologi: gaya klasik "Delphi 7" ------ */
+
+.delphi-frame {
+  background: #D4D0C8; border: 2px outset #ECE9D8; padding: 10px;
+  font-family: Tahoma, "MS Sans Serif", Arial, sans-serif;
+}
+.delphi-layout { display: flex; align-items: stretch; gap: 10px; }
+
+.delphi-listbox {
+  flex: 0 0 240px; min-width: 180px; max-height: 560px; overflow-y: auto;
+  background: #fff; border: 2px inset #808080; font-size: 12px;
+}
+.delphi-list-group {
+  background: #D4D0C8; color: #000; font-weight: bold; font-size: 11px;
+  padding: 3px 8px; border-top: 1px solid #fff; border-bottom: 1px solid #808080;
+}
+.delphi-list-group:first-child { border-top: none; }
+.delphi-list-item { padding: 4px 10px 4px 18px; cursor: pointer; border-bottom: 1px solid #eee; }
+.delphi-list-item:hover { background: #E8E8E8; }
+.delphi-list-item.active { background: #000080; color: #fff; }
+.delphi-list-item-added:not(.active) { color: #006000; font-weight: bold; }
+
+.delphi-detail { flex: 1; min-width: 0; }
+.delphi-placeholder {
+  background: #fff; border: 2px inset #808080; padding: 20px; text-align: center;
+  color: #444; font-size: 12px;
+}
+.delphi-groupbox {
+  border: 2px groove #ECE9D8; background: #D4D0C8; padding: 18px 14px 14px; position: relative;
+}
+.delphi-groupbox-title {
+  position: absolute; top: -10px; left: 12px; background: #D4D0C8; padding: 0 6px;
+  font-size: 12px; font-weight: bold;
+}
+.delphi-groupbox-badge { position: absolute; top: -10px; right: 12px; background: #D4D0C8; padding: 0 6px; }
+.delphi-groupbox-badge .accordion-badge { font-family: Tahoma, "MS Sans Serif", Arial, sans-serif; color: #000; font-weight: bold; font-size: 11px; }
+.delphi-groupbox-badge .accordion-badge-added { color: #006000; }
+
+.delphi-groupbox label {
+  display: block; font-size: 12px; font-weight: bold; color: #000; margin: 10px 0 3px;
+}
+
+/* Tabel Kesan di dalam panel Edit2 — daftar varian kesan per pemeriksaan, dengan
+   Tambah / Edit / Hapus / Copy. */
+.delphi-subbox { border: 1px solid #999; background: #DED9CE; padding: 10px 12px; margin-top: 14px; }
+.delphi-subbox-title {
+  font-size: 11px; font-weight: bold; color: #000; text-transform: uppercase;
+  letter-spacing: .3px; margin-bottom: 6px;
+}
+.delphi-datagrid { width: 100%; border-collapse: collapse; font-size: 12px; background: #fff; margin-bottom: 10px; }
+.delphi-datagrid th {
+  background: #D4D0C8; border: 1px solid #808080; padding: 4px 8px; text-align: left; font-weight: bold;
+}
+.delphi-datagrid td { border: 1px solid #C0C0C0; padding: 5px 8px; vertical-align: top; }
+.delphi-datagrid-empty { text-align: center; color: #666; padding: 12px; }
+.delphi-datagrid textarea {
+  width: 100%; padding: 4px 6px; border: 1px solid #808080; border-radius: 0;
+  font-size: 12px; font-family: inherit; resize: vertical;
+}
+.delphi-subbox textarea {
+  width: 100%; padding: 6px 8px; border: 2px inset #808080; border-radius: 0;
+  font-size: 12px; font-family: Tahoma, "MS Sans Serif", Arial, sans-serif; resize: vertical; margin-bottom: 8px;
+}
+
+/* -------------------------------- Data Sekunder Radiologi ---------------------- */
+
+.datasek-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.datasek-panel { display: none; }
+.datasek-panel.active { display: block; }
+.datasek-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.datasek-stat { background: #eef6f4; border-radius: 8px; padding: 14px 16px; }
+.datasek-stat .stat-label { font-size: 11.5px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+.datasek-stat .stat-value { font-size: 19px; font-weight: 700; color: var(--primary-dark); }
+.delphi-groupbox .btn {
+  background: #D4D0C8; border: 2px outset #ECE9D8; border-radius: 0; color: #000;
+  font-family: Tahoma, "MS Sans Serif", Arial, sans-serif; font-weight: normal; padding: 5px 14px;
+}
+.delphi-groupbox .btn:active { border-style: inset; }
+.delphi-groupbox .btn:hover { background: #DED9CE; }
+.delphi-groupbox .btn:disabled { opacity: .5; cursor: not-allowed; border-style: outset; background: #D4D0C8; }
+
+@media (max-width: 720px) {
+  .delphi-layout { flex-direction: column; }
+  .delphi-listbox { flex-basis: auto; max-height: 260px; }
+}
+
+.kesan-layout { display: flex; align-items: flex-start; gap: 16px; }
+.kesan-sidebar { flex: 0 0 260px; min-width: 200px; }
+#kesanTabPanel { flex: 1; min-width: 0; }
+@media (max-width: 720px) {
+  .kesan-layout { flex-direction: column; }
+  .kesan-sidebar { flex-basis: auto; width: 100%; }
+}
+
+.kesan-tab-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.kesan-tab {
+  width: 100%; text-align: left; background: #fff; border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 12px; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer;
+}
+.kesan-tab:hover { background: #eef6f4; border-color: var(--primary); }
+.kesan-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.kesan-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.kesan-panel-head h3 { margin: 0; color: var(--primary-dark); font-size: 16px; }
+.kesan-panel-head .accordion-badge { font-size: 13px; }
+
+.kesan-entry-list { display: flex; flex-direction: column; gap: 8px; }
+.kesan-entry { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: #fafcfb; cursor: pointer; }
+.kesan-entry:hover { border-color: var(--primary); background: #f1f8f6; }
+.kesan-entry:has(.kesan-entry-edit-input) { cursor: default; }
+.kesan-entry:has(.kesan-entry-edit-input):hover { border-color: var(--border); background: #fafcfb; }
+.kesan-entry-text { font-size: 13px; white-space: pre-wrap; margin-bottom: 6px; }
+.kesan-entry-edit-input {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; resize: vertical; margin-bottom: 8px;
+}
+.kesan-entry-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+.kesan-entry-info { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.kesan-entry-patient-link {
+  background: none; border: none; padding: 0; color: var(--primary-dark); font-weight: 700;
+  font-size: 11px; cursor: pointer; text-decoration: underline;
+}
+.kesan-entry-patient-link:hover { color: var(--primary); }
+
 /* -------------------------------- Hasil ekspertise radiologi ------------------- */
 
 .rad-exam-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 14px; background: #fafcfb; }
@@ -192,9 +354,9 @@ body {
 .kategori-head th { background: var(--primary); color: #fff; font-size: 13px; }
 .hasil-edit-tbl input { width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 6px; font-size: 13px; }
 .hasil-input { font-weight: 700; }
-.hasil-cell { display: flex; align-items: center; gap: 4px; }
-.hasil-cell .hasil-input { flex: 1; }
-.hasil-flag { color: #c0392b; font-weight: 700; font-size: 15px; width: 10px; }
+.hasil-cell { display: flex; align-items: center; gap: 1px; }
+.hasil-cell .hasil-input, .hasil-cell .hasil2-input { flex: 0 0 auto; min-width: 3ch; max-width: 100%; }
+.hasil-flag { color: #c0392b; font-weight: 700; font-size: 15px; }
 .flag-normal-input { color: #0056b3 !important; }
 .flag-abnormal-input { color: #b30000 !important; }
 
@@ -235,6 +397,21 @@ body {
   font-size: 13px; opacity: 0; transition: all .25s ease; pointer-events: none; z-index: 1000;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* -------------------------------- Loading screen (bootstrap dari server) --------- */
+
+#loadingScreen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0f6e5f 0%, #0b5245 55%, #093f34 100%);
+}
+.loading-box { text-align: center; color: #fff; }
+.loading-spinner {
+  width: 40px; height: 40px; border: 4px solid rgba(255,255,255,.3); border-top-color: #fff;
+  border-radius: 50%; margin: 0 auto 14px; animation: loading-spin 0.8s linear infinite;
+}
+@keyframes loading-spin { to { transform: rotate(360deg); } }
+#loadingText { font-size: 13.5px; opacity: .9; }
+#loadingText.loading-error { color: #ffb4a8; max-width: 380px; }
 
 /* -------------------------------- Login screen ----------------------------------- */
 

@@ -1,5 +1,12 @@
 /* ==========================================================================
-   data.js — lapisan penyimpanan (localStorage) & data bawaan (default seed)
+   data.js — lapisan penyimpanan (server + SQLite via /api/kv) & data bawaan
+   (default seed)
+
+   Semua data dimuat sekaligus dari server saat aplikasi dibuka (lihat
+   bootstrapCache di bawah), disimpan dalam CACHE di memori supaya
+   DB.getX()/saveX() tetap terasa instan (sinkron) seperti sebelumnya —
+   setiap saveX() langsung memperbarui CACHE lalu mengirim perubahannya ke
+   server di belakang layar.
    ========================================================================== */
 
 const DB_KEYS = {
@@ -13,7 +20,11 @@ const DB_KEYS = {
   RAD_JENIS: 'rad_jenis',
   RAD_DOKTER_SP: 'rad_dokter_sp',
   RAD_RADIOGRAFER: 'rad_radiografer',
-  RAD_REG: 'rad_registrasi'
+  RAD_REG: 'rad_registrasi',
+  RAD_KESAN_TEMPLATE: 'rad_kesan_template',
+  RAD_BACAAN_TEMPLATE: 'rad_bacaan_template',
+  RAD_PAJAK_SETTING: 'rad_pajak_setting',
+  ADMIN: 'lab_admin'
 };
 
 const MODALITAS_LIST = ['X-Ray', 'USG', 'CT-Scan', 'MRI', 'Panoramic Dental', 'Mammografi', 'BNO-IVP', 'Fluoroskopi'];
@@ -27,18 +38,18 @@ const ROLES = {
   ceo: {
     label: 'CEO', views: [
       'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp',
-      'pengaturan', 'users'
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-data-sekunder',
+      'kasir', 'admin', 'pengaturan', 'users'
     ]
   },
   manajer: {
     label: 'Manajer', views: [
       'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp',
-      'pengaturan'
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-data-sekunder',
+      'kasir', 'admin', 'pengaturan'
     ]
   },
-  karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil'] }
+  karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir'] }
 };
 
 const DEFAULT_LOGO =
@@ -53,19 +64,39 @@ function uid(prefix) {
   return (prefix ? prefix + '_' : '') + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+let CACHE = {};
+let cacheReady = false;
+
+function hasKey(key) {
+  return Object.prototype.hasOwnProperty.call(CACHE, key) && CACHE[key] !== null && CACHE[key] !== undefined;
+}
+
+/* Dipanggil sekali di awal (lihat bagian INIT di app.js) — mengambil seluruh
+   data dari server dalam satu request supaya DB.getX() sesudahnya bisa
+   sinkron membaca dari CACHE tanpa menunggu jaringan setiap kali. */
+async function bootstrapCache() {
+  const res = await fetch('/api/kv');
+  if (!res.ok) throw new Error('Gagal memuat data dari server (HTTP ' + res.status + ')');
+  CACHE = await res.json();
+  cacheReady = true;
+}
+
 function loadJSON(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error('Gagal memuat', key, e);
-    return fallback;
-  }
+  return hasKey(key) ? CACHE[key] : fallback;
 }
 
 function saveJSON(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  CACHE[key] = value;
+  fetch('/api/kv/' + encodeURIComponent(key), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value })
+  }).catch(err => {
+    console.error('Gagal menyimpan ke server:', key, err);
+    if (typeof showToast === 'function') {
+      showToast('Gagal menyimpan ke server — periksa koneksi ke server.');
+    }
+  });
 }
 
 /* ------------------------- Data bawaan (seed) --------------------------- */
@@ -271,6 +302,12 @@ function defaultRadiografer() {
   ];
 }
 
+function defaultAdmin() {
+  return [
+    { id: uid('adm'), nama: 'Siti Rahma', aktif: true }
+  ];
+}
+
 /* ------------------------------ API DB ----------------------------------- */
 
 const DB = {
@@ -337,11 +374,39 @@ const DB = {
     saveJSON(DB_KEYS.RAD_RADIOGRAFER, list);
   },
 
+  getAdmin() {
+    return loadJSON(DB_KEYS.ADMIN, defaultAdmin());
+  },
+  saveAdmin(list) {
+    saveJSON(DB_KEYS.ADMIN, list);
+  },
+
   getRegistrasiRadiologi() {
     return loadJSON(DB_KEYS.RAD_REG, []);
   },
   saveRegistrasiRadiologi(list) {
     saveJSON(DB_KEYS.RAD_REG, list);
+  },
+
+  getKesanTemplate() {
+    return loadJSON(DB_KEYS.RAD_KESAN_TEMPLATE, {});
+  },
+  saveKesanTemplate(map) {
+    saveJSON(DB_KEYS.RAD_KESAN_TEMPLATE, map);
+  },
+
+  getBacaanTemplate() {
+    return loadJSON(DB_KEYS.RAD_BACAAN_TEMPLATE, {});
+  },
+  saveBacaanTemplate(map) {
+    saveJSON(DB_KEYS.RAD_BACAAN_TEMPLATE, map);
+  },
+
+  getPajakSetting() {
+    return loadJSON(DB_KEYS.RAD_PAJAK_SETTING, { persen: 10 });
+  },
+  savePajakSetting(obj) {
+    saveJSON(DB_KEYS.RAD_PAJAK_SETTING, obj);
   },
 
   nextNoRM() {
@@ -371,16 +436,20 @@ const DB = {
   },
 
   init() {
-    if (!localStorage.getItem(DB_KEYS.SETTINGS)) this.saveSettings(defaultSettings());
-    if (!localStorage.getItem(DB_KEYS.ANALIS)) this.saveAnalis(defaultAnalis());
-    if (!localStorage.getItem(DB_KEYS.DOKTER)) this.saveDokter(defaultDokter());
-    if (!localStorage.getItem(DB_KEYS.PAKET)) this.savePaket(defaultPaket());
-    if (!localStorage.getItem(DB_KEYS.REG)) this.saveRegistrasi([]);
-    if (!localStorage.getItem(DB_KEYS.USERS)) this.saveUsers(defaultUsers());
-    if (!localStorage.getItem(DB_KEYS.RAD_JENIS)) this.saveJenisRadiologi(defaultJenisRadiologi());
-    if (!localStorage.getItem(DB_KEYS.RAD_DOKTER_SP)) this.saveDokterRadiologi(defaultDokterRadiologi());
-    if (!localStorage.getItem(DB_KEYS.RAD_RADIOGRAFER)) this.saveRadiografer(defaultRadiografer());
-    if (!localStorage.getItem(DB_KEYS.RAD_REG)) this.saveRegistrasiRadiologi([]);
+    if (!hasKey(DB_KEYS.SETTINGS)) this.saveSettings(defaultSettings());
+    if (!hasKey(DB_KEYS.ANALIS)) this.saveAnalis(defaultAnalis());
+    if (!hasKey(DB_KEYS.DOKTER)) this.saveDokter(defaultDokter());
+    if (!hasKey(DB_KEYS.PAKET)) this.savePaket(defaultPaket());
+    if (!hasKey(DB_KEYS.REG)) this.saveRegistrasi([]);
+    if (!hasKey(DB_KEYS.USERS)) this.saveUsers(defaultUsers());
+    if (!hasKey(DB_KEYS.RAD_JENIS)) this.saveJenisRadiologi(defaultJenisRadiologi());
+    if (!hasKey(DB_KEYS.RAD_DOKTER_SP)) this.saveDokterRadiologi(defaultDokterRadiologi());
+    if (!hasKey(DB_KEYS.RAD_RADIOGRAFER)) this.saveRadiografer(defaultRadiografer());
+    if (!hasKey(DB_KEYS.RAD_REG)) this.saveRegistrasiRadiologi([]);
+    if (!hasKey(DB_KEYS.RAD_KESAN_TEMPLATE)) this.saveKesanTemplate({});
+    if (!hasKey(DB_KEYS.RAD_BACAAN_TEMPLATE)) this.saveBacaanTemplate({});
+    if (!hasKey(DB_KEYS.RAD_PAJAK_SETTING)) this.savePajakSetting({ persen: 10 });
+    if (!hasKey(DB_KEYS.ADMIN)) this.saveAdmin(defaultAdmin());
     this.migrate();
   },
 
@@ -429,4 +498,23 @@ function hitungUmur(tglLahir) {
   let bl = now.getMonth() - bd.getMonth();
   if (bl < 0 || (bl === 0 && now.getDate() < bd.getDate())) th--;
   return th + ' th';
+}
+
+/* Angka ke terbilang Bahasa Indonesia, dipakai untuk kwitansi. */
+function terbilang(n) {
+  n = Math.floor(Math.abs(Number(n) || 0));
+  const satuan = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+  function rec(x) {
+    if (x < 12) return satuan[x];
+    if (x < 20) return rec(x - 10) + ' belas';
+    if (x < 100) return rec(Math.floor(x / 10)) + ' puluh' + (x % 10 ? ' ' + rec(x % 10) : '');
+    if (x < 200) return 'seratus' + (x % 100 ? ' ' + rec(x % 100) : '');
+    if (x < 1000) return rec(Math.floor(x / 100)) + ' ratus' + (x % 100 ? ' ' + rec(x % 100) : '');
+    if (x < 2000) return 'seribu' + (x % 1000 ? ' ' + rec(x % 1000) : '');
+    if (x < 1000000) return rec(Math.floor(x / 1000)) + ' ribu' + (x % 1000 ? ' ' + rec(x % 1000) : '');
+    if (x < 1000000000) return rec(Math.floor(x / 1000000)) + ' juta' + (x % 1000000 ? ' ' + rec(x % 1000000) : '');
+    return rec(Math.floor(x / 1000000000)) + ' miliar' + (x % 1000000000 ? ' ' + rec(x % 1000000000) : '');
+  }
+  if (n === 0) return 'nol';
+  return rec(n).trim();
 }

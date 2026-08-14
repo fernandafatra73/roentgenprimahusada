@@ -11,6 +11,29 @@ let currentUser = null;
 function $(sel) { return document.querySelector(sel); }
 function $all(sel) { return Array.from(document.querySelectorAll(sel)); }
 
+function autoSizeHasilInput(input) {
+  input.style.width = Math.max(3, input.value.length + 2) + 'ch';
+}
+
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopyText(text));
+  } else {
+    fallbackCopyText(text);
+  }
+}
+
+function fallbackCopyText(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta);
+}
+
 function showToast(msg) {
   const t = $('#toast');
   t.textContent = msg;
@@ -213,6 +236,7 @@ function renderDaftar() {
     `;
     const aksiCell = tr.querySelector('.aksi-cell');
     aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openForm(r.id)));
+    aksiCell.appendChild(makeBtn('Edit2', 'btn-danger', () => openHasil2(r.id)));
     aksiCell.appendChild(makeBtn('Hasil', 'btn-secondary', () => openHasil(r.id)));
     aksiCell.appendChild(makeBtn('Preview', 'btn-light', () => previewReport(r, printCtx())));
     aksiCell.appendChild(makeBtn('Print', 'btn-primary', () => printReport(r, printCtx())));
@@ -486,6 +510,7 @@ function openHasil(regId) {
       const nrInput = tr.querySelector('.nr-input');
       const flagSpan = tr.querySelector('.hasil-flag');
       const updateFlag = () => {
+        autoSizeHasilInput(hasilInput);
         const normal = evaluasiHasil(hasilInput.value, nrInput.value);
         hasilInput.classList.remove('flag-normal-input', 'flag-abnormal-input');
         flagSpan.textContent = '';
@@ -540,6 +565,98 @@ $('#formHasil').addEventListener('submit', (e) => {
     hasil[id].satuan = inp.value.trim();
   });
   $all('.nr-input').forEach(inp => {
+    const id = inp.dataset.testid;
+    if (!hasil[id]) hasil[id] = {};
+    hasil[id].nilaiRujukan = inp.value.trim();
+  });
+
+  reg.hasil = hasil;
+  reg.updatedAt = Date.now();
+  DB.saveRegistrasi(list);
+  showToast('Hasil pemeriksaan disimpan.');
+  showView('daftar');
+  renderDaftar();
+});
+
+/* ============================ EDIT2 (EDIT CEPAT HASIL) ===================== */
+
+let hasil2RegId = null;
+
+function openHasil2(regId) {
+  const reg = DB.getRegistrasi().find(r => r.id === regId);
+  if (!reg) return;
+  hasil2RegId = regId;
+
+  $('#hasil2PasienInfo').innerHTML = `
+    <div class="info-mini-grid">
+      <div><strong>${escapeHTML(reg.nama)}</strong> (${reg.jk === 'P' ? 'P' : 'L'}, ${escapeHTML(reg.umur || '-')})</div>
+      <div>No. RM: ${escapeHTML(reg.noRM)} — No. Reg: ${escapeHTML(reg.noReg)}</div>
+      <div>Tanggal: ${formatTanggal(reg.tanggal)}</div>
+    </div>`;
+
+  const wrap = $('#hasil2TablesWrap');
+  wrap.innerHTML = '';
+  (reg.paketSnapshot || []).forEach(pk => {
+    if (!pk.tests || pk.tests.length === 0) return;
+    const table = document.createElement('table');
+    table.className = 'tbl hasil-edit-tbl';
+    table.innerHTML = `
+      <thead>
+        <tr class="kategori-head"><th colspan="3">${escapeHTML(pk.nama)}</th></tr>
+        <tr><th>Pemeriksaan</th><th>Hasil</th><th>Nilai Rujukan</th></tr>
+      </thead>
+      <tbody></tbody>`;
+    const tbody = table.querySelector('tbody');
+    pk.tests.forEach(t => {
+      const rec = (reg.hasil || {})[t.id] || { hasil: '', satuan: t.satuan, nilaiRujukan: t.nilaiRujukan };
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHTML(t.nama)}</td>
+        <td class="hasil-cell">
+          <input type="text" data-testid="${t.id}" class="hasil2-input" value="${escapeHTML(rec.hasil)}">
+          <span class="hasil-flag"></span>
+        </td>
+        <td><input type="text" data-testid="${t.id}" class="nr2-input" value="${escapeHTML(rec.nilaiRujukan)}"></td>
+      `;
+      const hasilInput = tr.querySelector('.hasil2-input');
+      const nrInput = tr.querySelector('.nr2-input');
+      const flagSpan = tr.querySelector('.hasil-flag');
+      const updateFlag = () => {
+        autoSizeHasilInput(hasilInput);
+        const normal = evaluasiHasil(hasilInput.value, nrInput.value);
+        hasilInput.classList.remove('flag-normal-input', 'flag-abnormal-input');
+        flagSpan.textContent = '';
+        if (normal === true) {
+          hasilInput.classList.add('flag-normal-input');
+        } else if (normal === false) {
+          hasilInput.classList.add('flag-abnormal-input');
+          flagSpan.textContent = '*';
+        }
+      };
+      hasilInput.addEventListener('input', updateFlag);
+      nrInput.addEventListener('input', updateFlag);
+      updateFlag();
+      tbody.appendChild(tr);
+    });
+    wrap.appendChild(table);
+  });
+
+  showView('hasil2');
+}
+
+$('#formHasil2').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const list = DB.getRegistrasi();
+  const reg = list.find(r => r.id === hasil2RegId);
+  if (!reg) return;
+
+  const hasil = reg.hasil || {};
+  $all('.hasil2-input').forEach(inp => {
+    const id = inp.dataset.testid;
+    if (!hasil[id]) hasil[id] = {};
+    hasil[id].hasil = inp.value.trim();
+  });
+  $all('.nr2-input').forEach(inp => {
     const id = inp.dataset.testid;
     if (!hasil[id]) hasil[id] = {};
     hasil[id].nilaiRujukan = inp.value.trim();
@@ -826,6 +943,7 @@ function renderDaftarRad() {
     `;
     const aksiCell = tr.querySelector('.aksi-cell');
     aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openFormRad(r.id)));
+    aksiCell.appendChild(makeBtn('Edit Rad', 'btn-danger', () => openRadEdit2(r.id)));
     aksiCell.appendChild(makeBtn('Hasil', 'btn-secondary', () => openHasilRad(r.id)));
     aksiCell.appendChild(makeBtn('Preview', 'btn-light', () => previewReportRad(r, printCtxRad())));
     aksiCell.appendChild(makeBtn('Print', 'btn-primary', () => printReportRad(r, printCtxRad())));
@@ -1015,7 +1133,9 @@ $('#formDaftarRad').addEventListener('submit', (e) => {
     catatan: $('#fRadCatatan').value.trim(),
     totalHarga,
     createdAt: existing ? existing.createdAt : Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    hasilHistory: existing ? existing.hasilHistory : undefined,
+    statusBayar: existing ? existing.statusBayar : undefined
   };
 
   if (existing) {
@@ -1113,6 +1233,390 @@ $('#formHasilRad').addEventListener('submit', (e) => {
   renderDaftarRad();
 });
 
+/* ============================ RADIOLOGI: EDIT2 (KATALOG LENGKAP) ============================ */
+
+let hasilRegRad2Id = null;
+let radEdit2Items = {};
+let radEdit2JenisMap = {};
+let activeRadEdit2JenisId = null;
+let editingKesanTableId = null;
+let editingBacaanTableId = null;
+
+function accordionBadgeHTML(jenisId) {
+  const st = radEdit2Items[jenisId];
+  const j = radEdit2JenisMap[jenisId];
+  return st.added
+    ? '<span class="accordion-badge accordion-badge-added">&#10003; Ditambahkan</span>'
+    : `<span class="accordion-badge">${formatRupiah(j.harga)}</span>`;
+}
+
+/* Tabel Bacaan per pemeriksaan (Tambah / Edit). Klik salah satu barisnya
+   memindahkan teksnya ke kotak "Tambah Kesan Baru" di Tabel Kesan di bawahnya. */
+function bacaanTableHTML(jenisId) {
+  const list = (DB.getBacaanTemplate()[jenisId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
+  const rows = list.length === 0
+    ? `<tr><td colspan="3" class="delphi-datagrid-empty">Belum ada bacaan tersimpan.</td></tr>`
+    : list.map(entry => {
+        if (editingBacaanTableId === entry.id) {
+          return `
+            <tr data-entryid="${entry.id}">
+              <td colspan="2"><textarea rows="3" class="bacaan-table-edit-input">${escapeHTML(entry.bacaan)}</textarea></td>
+              <td>
+                <button type="button" class="btn btn-sm btn-primary bacaan-table-simpan-btn">Simpan</button>
+                <button type="button" class="btn btn-sm btn-light bacaan-table-batal-btn">Batal</button>
+              </td>
+            </tr>`;
+        }
+        return `
+          <tr class="bacaan-table-row" data-entryid="${entry.id}">
+            <td>${escapeHTML(entry.bacaan)}</td>
+            <td>${new Date(entry.createdAt).toLocaleString('id-ID')}</td>
+            <td><button type="button" class="btn btn-sm btn-light bacaan-table-edit-btn">Edit</button></td>
+          </tr>`;
+      }).join('');
+  return `
+    <div class="delphi-subbox">
+      <div class="delphi-subbox-title">Tabel Bacaan <span class="small-text" style="text-transform:none; font-weight:normal;">(klik baris untuk memindahkan ke Kesan)</span></div>
+      <table class="delphi-datagrid">
+        <thead><tr><th>Bacaan</th><th>Tersimpan</th><th>Aksi</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <textarea rows="3" class="bacaan-table-new-input" placeholder="Tulis bacaan baru untuk pemeriksaan ini..."></textarea>
+      <button type="button" class="btn btn-sm btn-primary bacaan-table-tambah-btn">+ Tambah</button>
+    </div>
+  `;
+}
+
+/* Tabel Kesan per pemeriksaan (Tambah / Edit / Hapus / Copy), memakai bank Kesan
+   yang sama dengan menu "Kesan" — jadi entri di sini juga muncul di sana. */
+function kesanTableHTML(jenisId) {
+  const list = (DB.getKesanTemplate()[jenisId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
+  const rows = list.length === 0
+    ? `<tr><td colspan="3" class="delphi-datagrid-empty">Belum ada kesan tersimpan.</td></tr>`
+    : list.map(entry => {
+        if (editingKesanTableId === entry.id) {
+          return `
+            <tr data-entryid="${entry.id}">
+              <td colspan="2"><textarea rows="3" class="kesan-table-edit-input">${escapeHTML(entry.kesan)}</textarea></td>
+              <td>
+                <button type="button" class="btn btn-sm btn-primary kesan-table-simpan-btn">Simpan</button>
+                <button type="button" class="btn btn-sm btn-light kesan-table-batal-btn">Batal</button>
+              </td>
+            </tr>`;
+        }
+        return `
+          <tr data-entryid="${entry.id}">
+            <td>${escapeHTML(entry.kesan)}</td>
+            <td>${new Date(entry.createdAt).toLocaleString('id-ID')}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-light kesan-table-edit-btn">Edit</button>
+              <button type="button" class="btn btn-sm btn-danger kesan-table-hapus-btn">Hapus</button>
+              <button type="button" class="btn btn-sm btn-light kesan-table-copy-btn">Copy</button>
+            </td>
+          </tr>`;
+      }).join('');
+  return `
+    <div class="delphi-subbox">
+      <div class="delphi-subbox-title">Tabel Kesan</div>
+      <table class="delphi-datagrid">
+        <thead><tr><th>Kesan</th><th>Tersimpan</th><th>Aksi</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <textarea rows="3" class="kesan-table-new-input" placeholder="Tulis kesan baru untuk pemeriksaan ini..."></textarea>
+      <button type="button" class="btn btn-sm btn-primary kesan-table-tambah-btn">+ Tambah</button>
+    </div>
+  `;
+}
+
+/* Panel per pemeriksaan: pilih apakah masuk ke pendaftaran ini, ditambah tabel
+   Bacaan (Tambah/Edit) dan Tabel Kesan (Tambah/Edit/Hapus/Copy) untuk
+   pemeriksaan tersebut. */
+function accordionItemBodyHTML(jenisId) {
+  const st = radEdit2Items[jenisId];
+  const j = radEdit2JenisMap[jenisId];
+  const statusHTML = st.added
+    ? `<div class="delphi-placeholder">&#10003; Pemeriksaan ini sudah termasuk dalam pendaftaran.</div>`
+    : `<button type="button" class="btn btn-sm btn-primary accordion-tambah-btn">+ Tambah Pemeriksaan Ini (${formatRupiah(j.harga)})</button>`;
+  return statusHTML + bacaanTableHTML(jenisId) + kesanTableHTML(jenisId);
+}
+
+/* Menyimpan langsung pilihan pemeriksaan ke data pendaftaran, tanpa menunggu
+   tombol Simpan di bawah. */
+function persistAccordionItem(jenisId) {
+  const list = DB.getRegistrasiRadiologi();
+  const reg = list.find(r => r.id === hasilRegRad2Id);
+  if (!reg) return;
+  const st = radEdit2Items[jenisId];
+
+  const jenisIdSet = new Set(reg.jenisIds || []);
+  if (st.added) jenisIdSet.add(jenisId); else jenisIdSet.delete(jenisId);
+  const idsArr = Array.from(jenisIdSet);
+  const jenisMaster = DB.getJenisRadiologi();
+
+  reg.jenisIds = idsArr;
+  reg.jenisSnapshot = idsArr.map(id => JSON.parse(JSON.stringify(jenisMaster.find(j => j.id === id) || radEdit2JenisMap[id])));
+  reg.totalHarga = reg.jenisSnapshot.reduce((sum, j) => sum + (Number(j.harga) || 0), 0);
+  reg.updatedAt = Date.now();
+
+  DB.saveRegistrasiRadiologi(list);
+}
+
+/* Gaya Delphi 7: daftar pemeriksaan sebagai listbox vertikal di kiri (Thorax
+   paling atas, lalu BNO dst di bawahnya). Klik satu baris -> panel kanan
+   menampilkan status pemeriksaan itu. */
+function renderRadEdit2Accordion(jenisAll) {
+  const wrap = $('#radEdit2Wrap');
+  let html = '';
+  MODALITAS_LIST.forEach(modalitas => {
+    const items = jenisAll.filter(j => j.modalitas === modalitas);
+    if (items.length === 0) return;
+    html += `<div class="delphi-list-group">${escapeHTML(modalitas)}</div>`;
+    html += items.map(j => {
+      const st = radEdit2Items[j.id];
+      const cls = 'delphi-list-item' + (activeRadEdit2JenisId === j.id ? ' active' : '') + (st.added ? ' delphi-list-item-added' : '');
+      return `<div class="${cls}" data-jenisid="${j.id}">${escapeHTML(j.nama)}${st.added ? ' &#10003;' : ''}</div>`;
+    }).join('');
+  });
+  wrap.innerHTML = html;
+  renderRadEdit2Panel();
+}
+
+function renderRadEdit2Panel() {
+  const panel = $('#radEdit2Panel');
+  if (!activeRadEdit2JenisId) {
+    panel.innerHTML = `<div class="delphi-placeholder">Pilih salah satu pemeriksaan di daftar kiri (Thorax, BNO, dst).</div>`;
+    return;
+  }
+  const j = radEdit2JenisMap[activeRadEdit2JenisId];
+  if (!j) { activeRadEdit2JenisId = null; renderRadEdit2Panel(); return; }
+  panel.innerHTML = `
+    <div class="delphi-groupbox">
+      <div class="delphi-groupbox-title">${escapeHTML(j.nama)} (${escapeHTML(j.modalitas)})</div>
+      <div class="delphi-groupbox-badge">${accordionBadgeHTML(activeRadEdit2JenisId)}</div>
+      ${accordionItemBodyHTML(activeRadEdit2JenisId)}
+    </div>
+  `;
+}
+
+function refreshRadEdit2Tab(jenisId) {
+  const row = document.querySelector(`#radEdit2Wrap .delphi-list-item[data-jenisid="${jenisId}"]`);
+  if (row) {
+    const st = radEdit2Items[jenisId];
+    const j = radEdit2JenisMap[jenisId];
+    row.classList.toggle('delphi-list-item-added', st.added);
+    row.innerHTML = `${escapeHTML(j.nama)}${st.added ? ' &#10003;' : ''}`;
+  }
+  renderRadEdit2Panel();
+}
+
+function openRadEdit2(regId) {
+  const reg = DB.getRegistrasiRadiologi().find(r => r.id === regId);
+  if (!reg) return;
+  hasilRegRad2Id = regId;
+
+  const dokter = DB.getDokter().find(d => d.id === reg.dokterId);
+  const radiografer = DB.getRadiografer().find(r => r.id === reg.radiograferId);
+  const dokterSp = DB.getDokterRadiologi().find(d => d.id === reg.dokterSpId);
+
+  $('#radEdit2PasienInfo').innerHTML = `
+    <div class="info-mini-grid">
+      <div><strong>${escapeHTML(reg.nama)}</strong> (${reg.jk === 'P' ? 'P' : 'L'}, ${escapeHTML(reg.umur || '-')})</div>
+      <div>No. RM: ${escapeHTML(reg.noRM)} — No. Reg: ${escapeHTML(reg.noReg)}</div>
+      <div>Tanggal: ${formatTanggal(reg.tanggal)}</div>
+      <div>Dokter Pengirim: ${escapeHTML(dokter ? dokter.nama : '-')}</div>
+      <div>Radiografer: ${escapeHTML(radiografer ? radiografer.nama : '-')}</div>
+      <div>Dokter Sp.Radiologi: ${escapeHTML(dokterSp ? dokterSp.nama : '-')}</div>
+    </div>`;
+
+  const jenisAll = DB.getJenisRadiologi().filter(j => j.aktif !== false);
+  radEdit2JenisMap = {};
+  jenisAll.forEach(j => { radEdit2JenisMap[j.id] = j; });
+
+  const addedIds = new Set(reg.jenisIds || []);
+  radEdit2Items = {};
+  jenisAll.forEach(j => {
+    radEdit2Items[j.id] = { added: addedIds.has(j.id) };
+  });
+
+  activeRadEdit2JenisId = null;
+  editingKesanTableId = null;
+  editingBacaanTableId = null;
+  renderRadEdit2Accordion(jenisAll);
+  showView('rad-edit2');
+}
+
+$('#radEdit2Wrap').addEventListener('click', (e) => {
+  const row = e.target.closest('.delphi-list-item');
+  if (row) {
+    activeRadEdit2JenisId = row.dataset.jenisid;
+    editingKesanTableId = null;
+    editingBacaanTableId = null;
+    $all('#radEdit2Wrap .delphi-list-item').forEach(b => b.classList.toggle('active', b === row));
+    renderRadEdit2Panel();
+  }
+});
+
+$('#radEdit2Panel').addEventListener('click', (e) => {
+  const jid = activeRadEdit2JenisId;
+  if (!jid) return;
+  const tambahBtn = e.target.closest('.accordion-tambah-btn');
+  if (tambahBtn) {
+    radEdit2Items[jid].added = true;
+    persistAccordionItem(jid);
+    refreshRadEdit2Tab(jid);
+    showToast('Pemeriksaan ditambahkan.');
+    renderDaftarRad();
+    return;
+  }
+  const bacaanTambahBtn = e.target.closest('.bacaan-table-tambah-btn');
+  if (bacaanTambahBtn) {
+    const textarea = $('#radEdit2Panel .bacaan-table-new-input');
+    const teks = textarea.value.trim();
+    if (!teks) { showToast('Tulis bacaan terlebih dahulu.'); return; }
+    const templates = DB.getBacaanTemplate();
+    if (!templates[jid]) templates[jid] = [];
+    templates[jid].push({ id: uid('bc'), bacaan: teks, createdAt: Date.now() });
+    DB.saveBacaanTemplate(templates);
+    showToast('Bacaan ditambahkan.');
+    renderRadEdit2Panel();
+    return;
+  }
+  const bacaanEditBtn3 = e.target.closest('.bacaan-table-edit-btn');
+  if (bacaanEditBtn3) {
+    editingBacaanTableId = bacaanEditBtn3.closest('tr').dataset.entryid;
+    renderRadEdit2Panel();
+    return;
+  }
+  const bacaanBatalBtn = e.target.closest('.bacaan-table-batal-btn');
+  if (bacaanBatalBtn) {
+    editingBacaanTableId = null;
+    renderRadEdit2Panel();
+    return;
+  }
+  const bacaanSimpanBtn3 = e.target.closest('.bacaan-table-simpan-btn');
+  if (bacaanSimpanBtn3) {
+    const tr = bacaanSimpanBtn3.closest('tr');
+    const entryId = tr.dataset.entryid;
+    const teks = tr.querySelector('.bacaan-table-edit-input').value.trim();
+    if (!teks) { showToast('Bacaan tidak boleh kosong.'); return; }
+    const templates = DB.getBacaanTemplate();
+    const entry = (templates[jid] || []).find(x => x.id === entryId);
+    if (entry) entry.bacaan = teks;
+    DB.saveBacaanTemplate(templates);
+    editingBacaanTableId = null;
+    showToast('Bacaan diperbarui.');
+    renderRadEdit2Panel();
+    return;
+  }
+  const bacaanRow = e.target.closest('.bacaan-table-row');
+  if (bacaanRow) {
+    const entryId = bacaanRow.dataset.entryid;
+    const entry = (DB.getBacaanTemplate()[jid] || []).find(x => x.id === entryId);
+    if (entry) {
+      const kesanTextarea = $('#radEdit2Panel .kesan-table-new-input');
+      if (kesanTextarea) {
+        kesanTextarea.value = entry.bacaan;
+        kesanTextarea.focus();
+        showToast('Bacaan dipindahkan ke kotak Kesan — klik "+ Tambah" untuk menyimpan.');
+      }
+    }
+    return;
+  }
+  const kesanTambahBtn = e.target.closest('.kesan-table-tambah-btn');
+  if (kesanTambahBtn) {
+    const textarea = $('#radEdit2Panel .kesan-table-new-input');
+    const teks = textarea.value.trim();
+    if (!teks) { showToast('Tulis kesan terlebih dahulu.'); return; }
+    const templates = DB.getKesanTemplate();
+    if (!templates[jid]) templates[jid] = [];
+    templates[jid].push({ id: uid('ks'), kesan: teks, createdAt: Date.now() });
+    DB.saveKesanTemplate(templates);
+    showToast('Kesan ditambahkan.');
+    renderRadEdit2Panel();
+    return;
+  }
+  const kesanEditBtn2 = e.target.closest('.kesan-table-edit-btn');
+  if (kesanEditBtn2) {
+    editingKesanTableId = kesanEditBtn2.closest('tr').dataset.entryid;
+    renderRadEdit2Panel();
+    return;
+  }
+  const kesanBatalBtn = e.target.closest('.kesan-table-batal-btn');
+  if (kesanBatalBtn) {
+    editingKesanTableId = null;
+    renderRadEdit2Panel();
+    return;
+  }
+  const kesanSimpanBtn2 = e.target.closest('.kesan-table-simpan-btn');
+  if (kesanSimpanBtn2) {
+    const tr = kesanSimpanBtn2.closest('tr');
+    const entryId = tr.dataset.entryid;
+    const teks = tr.querySelector('.kesan-table-edit-input').value.trim();
+    if (!teks) { showToast('Kesan tidak boleh kosong.'); return; }
+    const templates = DB.getKesanTemplate();
+    const entry = (templates[jid] || []).find(x => x.id === entryId);
+    if (entry) entry.kesan = teks;
+    DB.saveKesanTemplate(templates);
+    editingKesanTableId = null;
+    showToast('Kesan diperbarui.');
+    renderRadEdit2Panel();
+    return;
+  }
+  const kesanHapusBtn2 = e.target.closest('.kesan-table-hapus-btn');
+  if (kesanHapusBtn2) {
+    const entryId = kesanHapusBtn2.closest('tr').dataset.entryid;
+    const templates = DB.getKesanTemplate();
+    templates[jid] = (templates[jid] || []).filter(x => x.id !== entryId);
+    DB.saveKesanTemplate(templates);
+    showToast('Kesan dihapus.');
+    renderRadEdit2Panel();
+    return;
+  }
+  const kesanCopyBtn2 = e.target.closest('.kesan-table-copy-btn');
+  if (kesanCopyBtn2) {
+    const entryId = kesanCopyBtn2.closest('tr').dataset.entryid;
+    const entry = (DB.getKesanTemplate()[jid] || []).find(x => x.id === entryId);
+    if (entry) {
+      copyTextToClipboard(entry.kesan);
+      showToast('Kesan disalin ke clipboard.');
+    }
+    return;
+  }
+});
+
+$('#formRadEdit2').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const list = DB.getRegistrasiRadiologi();
+  const reg = list.find(r => r.id === hasilRegRad2Id);
+  if (!reg) return;
+
+  const addedIds = Object.keys(radEdit2Items).filter(id => radEdit2Items[id].added);
+  if (addedIds.length === 0) {
+    showToast('Pilih minimal satu pemeriksaan.');
+    return;
+  }
+
+  const jenisMaster = DB.getJenisRadiologi();
+  reg.jenisIds = addedIds;
+  reg.jenisSnapshot = addedIds.map(id => JSON.parse(JSON.stringify(jenisMaster.find(j => j.id === id))));
+  const hasil = {};
+  addedIds.forEach(id => {
+    hasil[id] = {
+      hasilBacaan: radEdit2Items[id].hasilBacaan.trim(),
+      kesan: radEdit2Items[id].kesan.trim(),
+      savedAt: radEdit2Items[id].savedAt || Date.now()
+    };
+  });
+  reg.hasil = hasil;
+  reg.totalHarga = reg.jenisSnapshot.reduce((sum, j) => sum + (Number(j.harga) || 0), 0);
+  reg.updatedAt = Date.now();
+
+  DB.saveRegistrasiRadiologi(list);
+  showToast('Perubahan pemeriksaan radiologi disimpan.');
+  showView('rad-daftar');
+  renderDaftarRad();
+});
+
 /* ============================ RADIOLOGI: MASTER JENIS & TARIF ============================ */
 
 function isiSelectModalitas(selId, current) {
@@ -1186,6 +1690,457 @@ $('#btnAddJenis').addEventListener('click', () => {
   hargaI.value = '';
   renderJenisMaster();
   showToast('Jenis pemeriksaan ditambahkan.');
+});
+
+/* ============================ RADIOLOGI: DAFTAR VARIAN KESAN (TAB) ============================ */
+/* Nama pemeriksaan tampil sejajar sebagai tab (Thorax, BNO, dst berdampingan).
+   Klik satu tab -> panel di bawahnya otomatis menampilkan Edit / Tambah dan
+   daftar Kesan pemeriksaan itu. Satu pemeriksaan bisa punya banyak kesan. */
+
+let activeKesanTabId = null;
+let editingKesanEntryId = null;
+
+function kesanTemplateBadgeHTML(jenisId) {
+  const list = DB.getKesanTemplate()[jenisId] || [];
+  return list.length > 0
+    ? `<span class="accordion-badge accordion-badge-added">${list.length} Kesan Tersimpan</span>`
+    : '<span class="accordion-badge">Belum ada kesan</span>';
+}
+
+function renderKesanTemplateMaster() {
+  const jenisAll = DB.getJenisRadiologi().filter(j => j.aktif !== false);
+  const wrap = $('#kesanTemplateWrap');
+  let html = '';
+  MODALITAS_LIST.forEach(modalitas => {
+    const items = jenisAll.filter(j => j.modalitas === modalitas);
+    if (items.length === 0) return;
+    html += `<div class="jenis-group-title">${escapeHTML(modalitas)}</div>`;
+    html += `<div class="kesan-tab-row">` + items.map(j => `
+      <button type="button" class="kesan-tab${activeKesanTabId === j.id ? ' active' : ''}" data-jenisid="${j.id}">${escapeHTML(j.nama)}</button>
+    `).join('') + `</div>`;
+  });
+  wrap.innerHTML = html;
+  renderKesanTabPanel();
+}
+
+$('#btnHapusSemuaKesan').addEventListener('click', async () => {
+  const ok = await confirmAsync('Yakin ingin menghapus SEMUA data Kesan Pemeriksaan Radiologi? Tindakan ini tidak bisa dibatalkan.');
+  if (!ok) return;
+  DB.saveKesanTemplate({});
+  activeKesanTabId = null;
+  editingKesanEntryId = null;
+  renderKesanTemplateMaster();
+  showToast('Semua data kesan pemeriksaan radiologi dihapus.');
+});
+
+function kesanEntryHTML(jenisId, entry) {
+  if (editingKesanEntryId === entry.id) {
+    return `
+      <div class="kesan-entry" data-entryid="${entry.id}">
+        <textarea rows="4" class="kesan-entry-edit-input">${escapeHTML(entry.kesan)}</textarea>
+        <div class="kesan-entry-meta">
+          <span class="kesan-entry-info">${new Date(entry.createdAt).toLocaleString('id-ID')}</span>
+          <div class="accordion-actions">
+            <button type="button" class="btn btn-sm btn-primary kesan-entry-simpan-edit-btn">Simpan</button>
+            <button type="button" class="btn btn-sm btn-light kesan-entry-batal-edit-btn">Batal</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="kesan-entry" data-entryid="${entry.id}">
+      <div class="kesan-entry-text">${escapeHTML(entry.kesan)}</div>
+      <div class="kesan-entry-meta">
+        <span class="kesan-entry-info">
+          ${new Date(entry.createdAt).toLocaleString('id-ID')}
+          ${entry.patientNama ? `&bull; <button type="button" class="kesan-entry-patient-link" data-regid="${entry.patientRegId}">&#128100; ${escapeHTML(entry.patientNama)} (RM ${escapeHTML(entry.patientNoRM || '-')})</button>` : ''}
+        </span>
+        <div class="accordion-actions">
+          <button type="button" class="btn btn-sm btn-light kesan-entry-edit-btn">Edit</button>
+          <button type="button" class="btn btn-sm btn-danger kesan-entry-hapus-btn">Hapus</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderKesanTabPanel() {
+  const panel = $('#kesanTabPanel');
+  if (!activeKesanTabId) {
+    panel.innerHTML = `<div class="empty-state">Pilih salah satu pemeriksaan di atas (Thorax, BNO, dst) untuk melihat atau menambah Kesan.</div>`;
+    return;
+  }
+  const j = DB.getJenisRadiologi().find(x => x.id === activeKesanTabId);
+  if (!j) { activeKesanTabId = null; renderKesanTabPanel(); return; }
+
+  const list = (DB.getKesanTemplate()[activeKesanTabId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
+  const entriesHTML = list.length === 0
+    ? `<div class="small-text">Belum ada kesan tersimpan untuk pemeriksaan ini.</div>`
+    : list.map(entry => kesanEntryHTML(activeKesanTabId, entry)).join('');
+
+  panel.innerHTML = `
+    <div class="kesan-panel-head">
+      <h3>${escapeHTML(j.nama)} <span class="small-text">(${escapeHTML(j.modalitas)})</span></h3>
+      ${kesanTemplateBadgeHTML(activeKesanTabId)}
+    </div>
+    <label>Tambah Varian Kesan Baru</label>
+    <textarea rows="4" class="kesan-template-input" placeholder="Tulis salah satu kemungkinan kesan untuk pemeriksaan ini..."></textarea>
+    <div class="accordion-actions" style="margin-bottom:16px;">
+      <button type="button" class="btn btn-sm btn-primary kesan-template-tambah-btn">+ Tambah Kesan</button>
+    </div>
+    <div class="kesan-entry-list">${entriesHTML}</div>
+  `;
+}
+
+$('#kesanTemplateWrap').addEventListener('click', (e) => {
+  const tab = e.target.closest('.kesan-tab');
+  if (tab) {
+    activeKesanTabId = tab.dataset.jenisid;
+    editingKesanEntryId = null;
+    renderKesanTemplateMaster();
+    return;
+  }
+});
+
+$('#kesanTabPanel').addEventListener('click', (e) => {
+  const tambahBtn = e.target.closest('.kesan-template-tambah-btn');
+  if (tambahBtn) {
+    const textarea = $('#kesanTabPanel .kesan-template-input');
+    const teks = textarea.value.trim();
+    if (!teks) { showToast('Tulis kesan terlebih dahulu.'); return; }
+    const templates = DB.getKesanTemplate();
+    if (!templates[activeKesanTabId]) templates[activeKesanTabId] = [];
+    templates[activeKesanTabId].push({ id: uid('ks'), kesan: teks, createdAt: Date.now() });
+    DB.saveKesanTemplate(templates);
+    showToast('Kesan baru ditambahkan.');
+    renderKesanTabPanel();
+    return;
+  }
+  const editBtn = e.target.closest('.kesan-entry-edit-btn');
+  if (editBtn) {
+    editingKesanEntryId = editBtn.closest('.kesan-entry').dataset.entryid;
+    renderKesanTabPanel();
+    return;
+  }
+  const batalBtn = e.target.closest('.kesan-entry-batal-edit-btn');
+  if (batalBtn) {
+    editingKesanEntryId = null;
+    renderKesanTabPanel();
+    return;
+  }
+  const simpanEditBtn = e.target.closest('.kesan-entry-simpan-edit-btn');
+  if (simpanEditBtn) {
+    const entryId = simpanEditBtn.closest('.kesan-entry').dataset.entryid;
+    const teks = simpanEditBtn.closest('.kesan-entry').querySelector('.kesan-entry-edit-input').value.trim();
+    if (!teks) { showToast('Kesan tidak boleh kosong.'); return; }
+    const templates = DB.getKesanTemplate();
+    const entry = (templates[activeKesanTabId] || []).find(x => x.id === entryId);
+    if (entry) entry.kesan = teks;
+    DB.saveKesanTemplate(templates);
+    editingKesanEntryId = null;
+    showToast('Kesan diperbarui.');
+    renderKesanTabPanel();
+    return;
+  }
+  const hapusBtn = e.target.closest('.kesan-entry-hapus-btn');
+  if (hapusBtn) {
+    const entryId = hapusBtn.closest('.kesan-entry').dataset.entryid;
+    const templates = DB.getKesanTemplate();
+    templates[activeKesanTabId] = (templates[activeKesanTabId] || []).filter(entry => entry.id !== entryId);
+    DB.saveKesanTemplate(templates);
+    showToast('Kesan dihapus.');
+    renderKesanTabPanel();
+    return;
+  }
+  const patientLink = e.target.closest('.kesan-entry-patient-link');
+  if (patientLink) {
+    const regId = patientLink.dataset.regid;
+    const reg = DB.getRegistrasiRadiologi().find(r => r.id === regId);
+    if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
+    openRadEdit2(regId);
+    return;
+  }
+
+  /* Klik di baris kesan mana pun (bukan tombol Edit/Hapus/dst di atas, dan bukan
+     saat sedang mode edit teks) langsung melompat ke Edit2 pasien terkait. */
+  const entryRow = e.target.closest('.kesan-entry');
+  if (entryRow && e.target.tagName !== 'TEXTAREA') {
+    const entryId = entryRow.dataset.entryid;
+    if (editingKesanEntryId === entryId) return;
+    const entry = (DB.getKesanTemplate()[activeKesanTabId] || []).find(x => x.id === entryId);
+    if (!entry) return;
+    if (!entry.patientRegId) { showToast('Kesan ini belum terhubung ke data pasien manapun.'); return; }
+    const reg = DB.getRegistrasiRadiologi().find(r => r.id === entry.patientRegId);
+    if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
+    openRadEdit2(entry.patientRegId);
+  }
+});
+
+/* ============================ RADIOLOGI: DATA SEKUNDER ============================ */
+/* Hub Kwitansi, Label, Pajak, Laporan Mingguan/Bulanan/Tahunan, dan Sharing Dokter —
+   semua dihitung dari data pendaftaran Radiologi saja. */
+
+function regsInRangeRad(dari, sampai) {
+  return DB.getRegistrasiRadiologi().filter(r => {
+    if (dari && r.tanggal < dari) return false;
+    if (sampai && r.tanggal > sampai) return false;
+    return true;
+  });
+}
+
+function switchDatasekTab(tabName) {
+  $all('.datasek-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+  const panelId = 'datasek' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
+  $all('.datasek-panel').forEach(p => p.classList.toggle('active', p.id === panelId));
+}
+
+function refreshDatasekTab(tabName) {
+  if (tabName === 'kwitansi') renderKwitansiList();
+  else if (tabName === 'label') renderLabelSekList();
+  else if (tabName === 'pajak') initPajakForm();
+  else if (tabName === 'tahunan') populateTahunYearSelect();
+}
+
+$('#datasekSubnav').addEventListener('click', (e) => {
+  const btn = e.target.closest('.datasek-tab');
+  if (!btn) return;
+  const tabName = btn.dataset.tab;
+  switchDatasekTab(tabName);
+  refreshDatasekTab(tabName);
+});
+
+/* ------------------------------ Kwitansi ------------------------------ */
+
+function renderKwitansiList() {
+  const q = ($('#cariKwitansi').value || '').toLowerCase().trim();
+  const list = DB.getRegistrasiRadiologi()
+    .filter(r => !q || (r.nama || '').toLowerCase().includes(q) || (r.noRM || '').toLowerCase().includes(q) || (r.noReg || '').toLowerCase().includes(q))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const tbody = $('#tblKwitansiBody');
+  tbody.innerHTML = '';
+  $('#emptyKwitansi').style.display = list.length ? 'none' : 'block';
+  list.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHTML(r.noReg)}</td><td>${formatTanggal(r.tanggal)}</td><td>${escapeHTML(r.nama)}</td><td>${formatRupiah(r.totalHarga)}</td><td class="aksi-cell"></td>`;
+    tr.querySelector('.aksi-cell').appendChild(makeBtn('Cetak Kwitansi', 'btn-primary', () => printKwitansiRad(r, printCtxRad())));
+    tbody.appendChild(tr);
+  });
+}
+$('#cariKwitansi').addEventListener('input', renderKwitansiList);
+
+/* ------------------------------ Label ------------------------------ */
+
+function renderLabelSekList() {
+  const q = ($('#cariLabelSek').value || '').toLowerCase().trim();
+  const list = DB.getRegistrasiRadiologi()
+    .filter(r => !q || (r.nama || '').toLowerCase().includes(q) || (r.noRM || '').toLowerCase().includes(q) || (r.noReg || '').toLowerCase().includes(q))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const tbody = $('#tblLabelSekBody');
+  tbody.innerHTML = '';
+  $('#emptyLabelSek').style.display = list.length ? 'none' : 'block';
+  list.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHTML(r.noReg)}</td><td>${formatTanggal(r.tanggal)}</td><td>${escapeHTML(r.nama)}</td><td class="aksi-cell"></td>`;
+    tr.querySelector('.aksi-cell').appendChild(makeBtn('Cetak Label', 'btn-light', () => openLabelModal(r)));
+    tbody.appendChild(tr);
+  });
+}
+$('#cariLabelSek').addEventListener('input', renderLabelSekList);
+
+/* ------------------------------ Pajak ------------------------------ */
+
+function initPajakForm() {
+  $('#pajakPersen').value = DB.getPajakSetting().persen;
+}
+
+$('#btnSimpanPajakPersen').addEventListener('click', () => {
+  const persen = Number($('#pajakPersen').value) || 0;
+  DB.savePajakSetting({ persen });
+  showToast('Persentase pajak disimpan.');
+});
+
+$('#formPajak').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const dari = $('#pajakDari').value;
+  const sampai = $('#pajakSampai').value;
+  const persen = Number($('#pajakPersen').value) || 0;
+  const list = regsInRangeRad(dari, sampai);
+  const total = list.reduce((s, r) => s + (Number(r.totalHarga) || 0), 0);
+  const pajak = total * persen / 100;
+  const bersih = total - pajak;
+  $('#pajakHasil').innerHTML = `
+    <div class="datasek-summary">
+      <div class="datasek-stat"><div class="stat-label">Jumlah Registrasi</div><div class="stat-value">${list.length}</div></div>
+      <div class="datasek-stat"><div class="stat-label">Total Pendapatan</div><div class="stat-value">${formatRupiah(total)}</div></div>
+      <div class="datasek-stat"><div class="stat-label">Pajak (${persen}%)</div><div class="stat-value">${formatRupiah(pajak)}</div></div>
+      <div class="datasek-stat"><div class="stat-label">Pendapatan Bersih</div><div class="stat-value">${formatRupiah(bersih)}</div></div>
+    </div>
+    <div class="form-actions"><button type="button" class="btn btn-light" id="btnCetakPajak">Cetak</button></div>
+  `;
+  $('#btnCetakPajak').addEventListener('click', () => {
+    const label = `Periode: ${dari ? formatTanggal(dari) : '(semua)'} s/d ${sampai ? formatTanggal(sampai) : '(semua)'}`;
+    printLaporanContainer('#pajakHasil', 'Laporan Pajak Radiologi', label);
+  });
+});
+
+/* ------------------------------ Laporan periode (Mingguan/Bulanan/Tahunan) ------------------------------ */
+
+function weekInputToRange(weekStr) {
+  if (!weekStr) return null;
+  const [y, w] = weekStr.split('-W').map(Number);
+  const jan4 = new Date(Date.UTC(y, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7;
+  const week1Monday = new Date(jan4);
+  week1Monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1);
+  const monday = new Date(week1Monday);
+  monday.setUTCDate(week1Monday.getUTCDate() + (w - 1) * 7);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = d => d.toISOString().slice(0, 10);
+  return { dari: fmt(monday), sampai: fmt(sunday) };
+}
+
+function monthInputToRange(monthStr) {
+  if (!monthStr) return null;
+  const [y, m] = monthStr.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1));
+  const last = new Date(Date.UTC(y, m, 0));
+  const fmt = d => d.toISOString().slice(0, 10);
+  return { dari: fmt(first), sampai: fmt(last) };
+}
+
+function yearToRange(year) {
+  return { dari: `${year}-01-01`, sampai: `${year}-12-31` };
+}
+
+function populateTahunYearSelect() {
+  const years = new Set(DB.getRegistrasiRadiologi().map(r => (r.tanggal || '').slice(0, 4)).filter(Boolean));
+  years.add(String(new Date().getFullYear()));
+  const sorted = Array.from(years).sort((a, b) => b - a);
+  const sel = $('#tahunanYear');
+  const cur = sel.value;
+  sel.innerHTML = sorted.map(y => `<option value="${y}">${y}</option>`).join('');
+  if (cur && sorted.includes(cur)) sel.value = cur;
+}
+
+function renderLaporanPeriode(containerSel, dari, sampai, periodeLabel, judul) {
+  const list = regsInRangeRad(dari, sampai);
+  const total = list.reduce((s, r) => s + (Number(r.totalHarga) || 0), 0);
+
+  const modalitasMap = {};
+  list.forEach(r => {
+    (r.jenisSnapshot || []).forEach(j => {
+      if (!modalitasMap[j.modalitas]) modalitasMap[j.modalitas] = { count: 0, total: 0 };
+      modalitasMap[j.modalitas].count += 1;
+      modalitasMap[j.modalitas].total += Number(j.harga) || 0;
+    });
+  });
+  const modalitasRows = Object.keys(modalitasMap).map(m =>
+    `<tr><td>${escapeHTML(m)}</td><td>${modalitasMap[m].count}</td><td>${formatRupiah(modalitasMap[m].total)}</td></tr>`
+  ).join('') || '<tr><td colspan="3" class="empty-state">Tidak ada data.</td></tr>';
+
+  const regRows = list.map(r =>
+    `<tr><td>${escapeHTML(r.noReg)}</td><td>${formatTanggal(r.tanggal)}</td><td>${escapeHTML(r.nama)}</td><td>${formatRupiah(r.totalHarga)}</td></tr>`
+  ).join('') || '<tr><td colspan="4" class="empty-state">Tidak ada data.</td></tr>';
+
+  const el = $(containerSel);
+  el.innerHTML = `
+    <div class="datasek-summary">
+      <div class="datasek-stat"><div class="stat-label">Jumlah Registrasi</div><div class="stat-value">${list.length}</div></div>
+      <div class="datasek-stat"><div class="stat-label">Total Pendapatan</div><div class="stat-value">${formatRupiah(total)}</div></div>
+    </div>
+    <h4>Rincian per Modalitas</h4>
+    <table class="tbl"><thead><tr><th>Modalitas</th><th>Jumlah</th><th>Pendapatan</th></tr></thead><tbody>${modalitasRows}</tbody></table>
+    <h4>Daftar Registrasi</h4>
+    <table class="tbl"><thead><tr><th>No. Reg</th><th>Tanggal</th><th>Nama</th><th>Total</th></tr></thead><tbody>${regRows}</tbody></table>
+    <div class="form-actions"><button type="button" class="btn btn-light btn-cetak-laporan">Cetak</button></div>
+  `;
+  el.querySelector('.btn-cetak-laporan').addEventListener('click', () => printLaporanContainer(containerSel, judul, periodeLabel));
+}
+
+$('#formMingguan').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const range = weekInputToRange($('#mingguanWeek').value);
+  if (!range) { showToast('Pilih minggu terlebih dahulu.'); return; }
+  renderLaporanPeriode('#mingguanHasil', range.dari, range.sampai, `Minggu: ${formatTanggal(range.dari)} s/d ${formatTanggal(range.sampai)}`, 'Laporan Mingguan Radiologi');
+});
+
+$('#formBulanan').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const range = monthInputToRange($('#bulananMonth').value);
+  if (!range) { showToast('Pilih bulan terlebih dahulu.'); return; }
+  renderLaporanPeriode('#bulananHasil', range.dari, range.sampai, `Bulan: ${formatTanggal(range.dari)} s/d ${formatTanggal(range.sampai)}`, 'Laporan Bulanan Radiologi');
+});
+
+$('#formTahunan').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const year = $('#tahunanYear').value;
+  if (!year) { showToast('Pilih tahun terlebih dahulu.'); return; }
+  const range = yearToRange(year);
+  renderLaporanPeriode('#tahunanHasil', range.dari, range.sampai, `Tahun: ${year}`, 'Laporan Tahunan Radiologi');
+});
+
+/* ------------------------------ Sharing Dokter ------------------------------ */
+
+$('#formSharing').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const dari = $('#sharingDari').value;
+  const sampai = $('#sharingSampai').value;
+  const list = regsInRangeRad(dari, sampai);
+  const dokterList = DB.getDokter();
+  const agg = {};
+  list.forEach(r => {
+    if (!r.dokterId) return;
+    if (!agg[r.dokterId]) agg[r.dokterId] = { count: 0, total: 0 };
+    agg[r.dokterId].count += 1;
+    agg[r.dokterId].total += Number(r.totalHarga) || 0;
+  });
+  const dokterIds = Object.keys(agg);
+  const hasilEl = $('#sharingHasil');
+  if (dokterIds.length === 0) {
+    hasilEl.innerHTML = `<div class="empty-state">Tidak ada data pada periode ini.</div>`;
+    return;
+  }
+  const rowsHTML = dokterIds.map(did => {
+    const d = dokterList.find(x => x.id === did);
+    const nama = d ? d.nama : '(tidak diketahui)';
+    const persen = d && d.sharingPersen != null ? d.sharingPersen : 0;
+    const nominal = agg[did].total * persen / 100;
+    return `<tr data-dokterid="${did}">
+      <td>${escapeHTML(nama)}</td>
+      <td>${agg[did].count}</td>
+      <td>${formatRupiah(agg[did].total)}</td>
+      <td><input type="number" class="sharing-persen-input" value="${persen}" min="0" max="100" step="0.1" style="width:70px;"> %</td>
+      <td class="sharing-nominal-cell">${formatRupiah(nominal)}</td>
+    </tr>`;
+  }).join('');
+
+  hasilEl.innerHTML = `
+    <table class="tbl">
+      <thead><tr><th>Dokter Pengirim</th><th>Jumlah Pasien</th><th>Total Pendapatan</th><th>% Sharing</th><th>Nominal Sharing</th></tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
+    <div class="form-actions"><button type="button" class="btn btn-light" id="btnCetakSharing">Cetak</button></div>
+  `;
+
+  hasilEl.querySelectorAll('.sharing-persen-input').forEach(inp => {
+    inp.addEventListener('change', (e) => {
+      const tr = e.target.closest('tr');
+      const did = tr.dataset.dokterid;
+      const persen = Number(e.target.value) || 0;
+      const dList = DB.getDokter();
+      const d = dList.find(x => x.id === did);
+      if (d) { d.sharingPersen = persen; DB.saveDokter(dList); }
+      e.target.setAttribute('value', String(persen));
+      const nominal = agg[did].total * persen / 100;
+      tr.querySelector('.sharing-nominal-cell').textContent = formatRupiah(nominal);
+      showToast('Persentase sharing disimpan.');
+    });
+  });
+
+  $('#btnCetakSharing').addEventListener('click', () => {
+    const label = `Periode: ${dari ? formatTanggal(dari) : '(semua)'} s/d ${sampai ? formatTanggal(sampai) : '(semua)'}`;
+    printLaporanContainer('#sharingHasil', 'Laporan Sharing Dokter Radiologi', label);
+  });
 });
 
 /* ============================ RADIOLOGI: MASTER RADIOGRAFER ============================ */
@@ -1279,6 +2234,164 @@ $('#btnAddDokterSp').addEventListener('click', () => {
   renderDokterSp();
   showToast('Dokter Sp.Radiologi ditambahkan.');
 });
+
+/* =================================== KASIR =================================== */
+/* Menggabungkan pendaftaran Laboratorium dan Radiologi dalam satu daftar kasir,
+   untuk menandai status pembayaran (Lunas / Belum Lunas) dan mencetak kwitansi. */
+
+function kasirCombinedList() {
+  const lab = DB.getRegistrasi().map(r => ({ dept: 'lab', reg: r }));
+  const rad = DB.getRegistrasiRadiologi().map(r => ({ dept: 'radiologi', reg: r }));
+  return lab.concat(rad).sort((a, b) => (b.reg.createdAt || 0) - (a.reg.createdAt || 0));
+}
+
+function renderKasirList() {
+  const q = ($('#cariKasir').value || '').toLowerCase().trim();
+  const deptFilter = $('#filterDeptKasir').value;
+  const statusFilter = $('#filterStatusKasir').value;
+
+  const filtered = kasirCombinedList().filter(({ dept, reg }) => {
+    if (deptFilter && dept !== deptFilter) return false;
+    const status = reg.statusBayar || 'belum';
+    if (statusFilter && status !== statusFilter) return false;
+    if (!q) return true;
+    return (reg.nama || '').toLowerCase().includes(q) ||
+      (reg.noRM || '').toLowerCase().includes(q) ||
+      (reg.noReg || '').toLowerCase().includes(q);
+  });
+
+  renderKasirSummary(filtered);
+
+  const tbody = $('#tblKasirBody');
+  tbody.innerHTML = '';
+  $('#emptyKasir').style.display = filtered.length ? 'none' : 'block';
+
+  filtered.forEach(({ dept, reg }) => {
+    const status = reg.statusBayar || 'belum';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${dept === 'lab' ? 'Laboratorium' : 'Radiologi'}</td>
+      <td>${escapeHTML(reg.noReg)}</td>
+      <td>${formatTanggal(reg.tanggal)}</td>
+      <td>${escapeHTML(reg.nama)}</td>
+      <td>${formatRupiah(reg.totalHarga)}</td>
+      <td><span class="badge badge-${status === 'lunas' ? 'selesai' : 'belum'}">${status === 'lunas' ? 'Lunas' : 'Belum Lunas'}</span></td>
+      <td class="aksi-cell"></td>
+    `;
+    const aksiCell = tr.querySelector('.aksi-cell');
+    aksiCell.appendChild(makeBtn(status === 'lunas' ? 'Batal Lunas' : 'Tandai Lunas', status === 'lunas' ? 'btn-light' : 'btn-primary', () => {
+      toggleKasirLunas(dept, reg.id);
+    }));
+    aksiCell.appendChild(makeBtn('Cetak Kwitansi', 'btn-light', () => {
+      const adminNama = $('#kasirAdminSelect').value;
+      if (dept === 'lab') printKwitansiLab(reg, Object.assign({}, printCtx(), { adminNama }));
+      else printKwitansiRad(reg, Object.assign({}, printCtxRad(), { adminNama }));
+    }));
+    tbody.appendChild(tr);
+  });
+}
+
+/* Admin yang bertugas di kasir — namanya dipakai sebagai penerima di kwitansi,
+   menggantikan nama penanggung jawab klinik. */
+function populateKasirAdminSelect() {
+  const sel = $('#kasirAdminSelect');
+  const cur = sel.value;
+  const list = DB.getAdmin().filter(a => a.aktif !== false);
+  sel.innerHTML = list.length
+    ? list.map(a => `<option value="${escapeHTML(a.nama)}">${escapeHTML(a.nama)}</option>`).join('')
+    : '<option value="">(Belum ada admin)</option>';
+  if (cur && list.some(a => a.nama === cur)) sel.value = cur;
+}
+
+/* "Data Kasir" — ringkasan statistik dari daftar yang sedang tampil (ikut berubah
+   sesuai pencarian/filter departemen & status yang aktif). */
+function renderKasirSummary(filtered) {
+  const totalSemua = filtered.reduce((s, { reg }) => s + (Number(reg.totalHarga) || 0), 0);
+  const lunasList = filtered.filter(({ reg }) => (reg.statusBayar || 'belum') === 'lunas');
+  const belumList = filtered.filter(({ reg }) => (reg.statusBayar || 'belum') !== 'lunas');
+  const totalLunas = lunasList.reduce((s, { reg }) => s + (Number(reg.totalHarga) || 0), 0);
+  const totalBelum = belumList.reduce((s, { reg }) => s + (Number(reg.totalHarga) || 0), 0);
+
+  $('#kasirSummary').innerHTML = `
+    <div class="datasek-stat"><div class="stat-label">Jumlah Transaksi</div><div class="stat-value">${filtered.length}</div></div>
+    <div class="datasek-stat"><div class="stat-label">Total Nilai</div><div class="stat-value">${formatRupiah(totalSemua)}</div></div>
+    <div class="datasek-stat"><div class="stat-label">Sudah Lunas (${lunasList.length})</div><div class="stat-value">${formatRupiah(totalLunas)}</div></div>
+    <div class="datasek-stat"><div class="stat-label">Belum Lunas (${belumList.length})</div><div class="stat-value">${formatRupiah(totalBelum)}</div></div>
+  `;
+}
+
+function toggleKasirLunas(dept, regId) {
+  if (dept === 'lab') {
+    const list = DB.getRegistrasi();
+    const reg = list.find(r => r.id === regId);
+    if (!reg) return;
+    reg.statusBayar = (reg.statusBayar || 'belum') === 'lunas' ? 'belum' : 'lunas';
+    DB.saveRegistrasi(list);
+  } else {
+    const list = DB.getRegistrasiRadiologi();
+    const reg = list.find(r => r.id === regId);
+    if (!reg) return;
+    reg.statusBayar = (reg.statusBayar || 'belum') === 'lunas' ? 'belum' : 'lunas';
+    DB.saveRegistrasiRadiologi(list);
+  }
+  renderKasirList();
+  showToast('Status pembayaran diperbarui.');
+}
+
+$('#cariKasir').addEventListener('input', renderKasirList);
+$('#filterDeptKasir').addEventListener('change', renderKasirList);
+$('#filterStatusKasir').addEventListener('change', renderKasirList);
+
+/* =================================== ADMIN =================================== */
+
+function renderAdmin() {
+  const q = ($('#cariAdmin').value || '').toLowerCase().trim();
+  const list = DB.getAdmin();
+  const filtered = list.filter(a => !q || a.nama.toLowerCase().includes(q));
+  const tbody = $('#tblAdminBody');
+  tbody.innerHTML = '';
+  $('#emptyAdmin').style.display = filtered.length ? 'none' : 'block';
+  filtered.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="inline-edit" value="${escapeHTML(a.nama)}"></td>
+      <td class="center"><input type="checkbox" ${a.aktif !== false ? 'checked' : ''}></td>
+      <td class="aksi-cell"></td>
+    `;
+    const [namaCell, aktifCell, aksiCell] = tr.children;
+    namaCell.querySelector('input').addEventListener('change', (e) => {
+      a.nama = e.target.value.trim();
+      DB.saveAdmin(list);
+      showToast('Admin diperbarui.');
+    });
+    aktifCell.querySelector('input').addEventListener('change', (e) => {
+      a.aktif = e.target.checked;
+      DB.saveAdmin(list);
+    });
+    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+      const ok = await confirmAsync(`Hapus admin "${a.nama}"?`);
+      if (!ok) return;
+      DB.saveAdmin(list.filter(x => x.id !== a.id));
+      renderAdmin();
+      showToast('Admin dihapus.');
+    }));
+    tbody.appendChild(tr);
+  });
+}
+
+$('#btnAddAdmin').addEventListener('click', () => {
+  const input = $('#newAdminNama');
+  const nama = input.value.trim();
+  if (!nama) { showToast('Nama admin tidak boleh kosong.'); return; }
+  const list = DB.getAdmin();
+  list.push({ id: uid('adm'), nama, aktif: true });
+  DB.saveAdmin(list);
+  input.value = '';
+  renderAdmin();
+  showToast('Admin ditambahkan.');
+});
+
+$('#cariAdmin').addEventListener('input', renderAdmin);
 
 /* =============================== PENGATURAN ================================ */
 
@@ -1422,7 +2535,24 @@ $all('.navbtn[data-view]').forEach(btn => {
     if (!hasAccess(view)) return;
     showView(view);
     refreshView(view);
+    const openMenu = btn.closest('.nav-dropdown-menu');
+    if (openMenu) openMenu.classList.remove('show');
   });
+});
+
+/* Menu Radiologi / Lab / Umum di header disusun sebagai dropdown — isinya baru
+   terlihat saat tombol grupnya diklik, supaya header tidak penuh sesak. */
+$all('.nav-dropdown-toggle').forEach(toggle => {
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = toggle.nextElementSibling;
+    const willOpen = !menu.classList.contains('show');
+    $all('.nav-dropdown-menu').forEach(m => m.classList.remove('show'));
+    if (willOpen) menu.classList.add('show');
+  });
+});
+document.addEventListener('click', () => {
+  $all('.nav-dropdown-menu').forEach(m => m.classList.remove('show'));
 });
 
 $all('[data-back]').forEach(btn => {
@@ -1460,6 +2590,10 @@ function refreshView(view) {
   else if (view === 'master-paket') renderPaketMaster();
   else if (view === 'rad-daftar') renderDaftarRad();
   else if (view === 'rad-master-jenis') renderJenisMaster();
+  else if (view === 'rad-master-kesan') renderKesanTemplateMaster();
+  else if (view === 'rad-data-sekunder') { renderKwitansiList(); populateTahunYearSelect(); }
+  else if (view === 'kasir') { populateKasirAdminSelect(); renderKasirList(); }
+  else if (view === 'admin') renderAdmin();
   else if (view === 'rad-master-radiografer') renderRadiografer();
   else if (view === 'rad-master-dokter-sp') renderDokterSp();
   else if (view === 'pengaturan') renderPengaturan();
@@ -1468,5 +2602,17 @@ function refreshView(view) {
 
 /* ================================== INIT ==================================== */
 
-DB.init();
-checkSession();
+(async () => {
+  try {
+    await bootstrapCache();
+  } catch (err) {
+    console.error(err);
+    const txt = $('#loadingText');
+    txt.textContent = 'Gagal terhubung ke server. Pastikan server (node server.js) sedang berjalan, lalu muat ulang halaman ini.';
+    txt.classList.add('loading-error');
+    return;
+  }
+  DB.init();
+  $('#loadingScreen').style.display = 'none';
+  checkSession();
+})();

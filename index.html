@@ -8,8 +8,16 @@
 </head>
 <body>
 
+<!-- ======================= LAYAR MEMUAT (bootstrap dari server) ======================= -->
+<div id="loadingScreen">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <div id="loadingText">Memuat data dari server...</div>
+  </div>
+</div>
+
 <!-- ======================= LAYAR LOGIN ======================= -->
-<div id="loginScreen">
+<div id="loginScreen" style="display:none">
   <div class="login-card">
     <div class="login-brand">
       <img id="loginLogo" src="" alt="Logo">
@@ -58,21 +66,39 @@
       <div class="brand-name" id="brandName">LABORATORIUM</div>
       <div class="brand-sub">Sistem Informasi Laboratorium &amp; Radiologi</div>
     </div>
+    <div class="topbar-brand-radnav">
+      <div class="nav-dropdown">
+        <button type="button" class="navbtn nav-dropdown-toggle">Radiologi &#9662;</button>
+        <div class="nav-dropdown-menu">
+          <button class="navbtn" data-view="rad-daftar">Pendaftaran</button>
+          <button class="navbtn" data-view="rad-master-radiografer">Radiografer</button>
+          <button class="navbtn" data-view="rad-master-dokter-sp">Dokter Sp.Rad</button>
+          <button class="navbtn" data-view="rad-master-jenis">Jenis &amp; Tarif</button>
+          <button class="navbtn" data-view="rad-master-kesan">Kesan</button>
+          <button class="navbtn" data-view="rad-data-sekunder">Data Sekunder</button>
+        </div>
+      </div>
+    </div>
   </div>
   <nav class="topnav">
-    <span class="nav-sep">Lab</span>
-    <button class="navbtn active" data-view="daftar">Pendaftaran</button>
-    <button class="navbtn" data-view="master-analis">Analis</button>
-    <button class="navbtn" data-view="master-paket">Paket &amp; Harga</button>
-    <span class="nav-sep">Radiologi</span>
-    <button class="navbtn" data-view="rad-daftar">Pendaftaran</button>
-    <button class="navbtn" data-view="rad-master-radiografer">Radiografer</button>
-    <button class="navbtn" data-view="rad-master-dokter-sp">Dokter Sp.Rad</button>
-    <button class="navbtn" data-view="rad-master-jenis">Jenis &amp; Tarif</button>
-    <span class="nav-sep">Umum</span>
-    <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
-    <button class="navbtn" data-view="pengaturan">Pengaturan</button>
-    <button class="navbtn" data-view="users">Pengguna</button>
+    <div class="nav-dropdown">
+      <button type="button" class="navbtn nav-dropdown-toggle">Lab &#9662;</button>
+      <div class="nav-dropdown-menu">
+        <button class="navbtn active" data-view="daftar">Pendaftaran</button>
+        <button class="navbtn" data-view="master-analis">Analis</button>
+        <button class="navbtn" data-view="master-paket">Paket &amp; Harga</button>
+      </div>
+    </div>
+    <div class="nav-dropdown">
+      <button type="button" class="navbtn nav-dropdown-toggle">Umum &#9662;</button>
+      <div class="nav-dropdown-menu">
+        <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
+        <button class="navbtn" data-view="kasir">Kasir</button>
+        <button class="navbtn" data-view="admin">Admin</button>
+        <button class="navbtn" data-view="pengaturan">Pengaturan</button>
+        <button class="navbtn" data-view="users">Pengguna</button>
+      </div>
+    </div>
     <div class="topbar-user">
       <div class="user-info">
         <div class="user-nama" id="loggedUserNama">-</div>
@@ -222,6 +248,24 @@
 
     <form id="formHasil" class="card">
       <div id="hasilTablesWrap"></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Simpan Hasil</button>
+        <button type="button" class="btn btn-light" data-back="daftar">Batal</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ======================= VIEW: EDIT2 (EDIT CEPAT HASIL) ======================= -->
+  <section id="view-hasil2" class="view">
+    <div class="view-header">
+      <h2>Edit Cepat Hasil Pemeriksaan</h2>
+      <button class="btn btn-light" data-back="daftar">&larr; Kembali</button>
+    </div>
+
+    <div class="card" id="hasil2PasienInfo"></div>
+
+    <form id="formHasil2" class="card">
+      <div id="hasil2TablesWrap"></div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">Simpan Hasil</button>
         <button type="button" class="btn btn-light" data-back="daftar">Batal</button>
@@ -425,6 +469,29 @@
     </form>
   </section>
 
+  <!-- ======================= VIEW: EDIT2 (KATALOG LENGKAP PEMERIKSAAN RADIOLOGI) ======================= -->
+  <section id="view-rad-edit2" class="view">
+    <div class="view-header">
+      <h2>Edit2 — Pemeriksaan Radiologi Lengkap</h2>
+      <button class="btn btn-light" data-back="rad-daftar">&larr; Kembali</button>
+    </div>
+
+    <div class="card" id="radEdit2PasienInfo"></div>
+
+    <form id="formRadEdit2" class="card">
+      <div class="delphi-frame">
+        <div class="delphi-layout">
+          <div class="delphi-listbox" id="radEdit2Wrap"></div>
+          <div class="delphi-detail" id="radEdit2Panel"></div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Simpan</button>
+        <button type="button" class="btn btn-light" data-back="rad-daftar">Batal</button>
+      </div>
+    </form>
+  </section>
+
   <!-- ======================= VIEW: MASTER JENIS & TARIF RADIOLOGI ======================= -->
   <section id="view-rad-master-jenis" class="view">
     <div class="view-header">
@@ -441,6 +508,113 @@
         <thead><tr><th>Nama Pemeriksaan</th><th>Modalitas</th><th>Harga</th><th>Aktif</th><th>Aksi</th></tr></thead>
         <tbody id="tblJenisRadBody"></tbody>
       </table>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: TEMPLATE KESAN PEMERIKSAAN RADIOLOGI ======================= -->
+  <section id="view-rad-master-kesan" class="view">
+    <div class="view-header">
+      <h2>Kesan Pemeriksaan Radiologi</h2>
+      <button type="button" class="btn btn-danger" id="btnHapusSemuaKesan">Hapus Semua Data</button>
+    </div>
+    <div class="kesan-layout">
+      <div id="kesanTemplateWrap" class="kesan-sidebar"></div>
+      <div class="card" id="kesanTabPanel"></div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: DATA SEKUNDER RADIOLOGI ======================= -->
+  <section id="view-rad-data-sekunder" class="view">
+    <div class="view-header">
+      <h2>Data Sekunder Radiologi</h2>
+    </div>
+    <div class="toolbar" id="datasekSubnav">
+      <button type="button" class="btn btn-light datasek-tab active" data-tab="kwitansi">Kwitansi</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="label">Label</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="pajak">Pajak</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="mingguan">Laporan Mingguan</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="bulanan">Laporan Bulanan</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="tahunan">Laporan Tahunan</button>
+      <button type="button" class="btn btn-light datasek-tab" data-tab="sharing">Sharing Dokter</button>
+    </div>
+
+    <!-- KWITANSI -->
+    <div class="datasek-panel active" id="datasekKwitansi">
+      <div class="toolbar">
+        <input type="text" id="cariKwitansi" placeholder="Cari nama / No. RM / No. Registrasi...">
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>No. Reg</th><th>Tanggal</th><th>Nama Pasien</th><th>Total</th><th>Aksi</th></tr></thead>
+          <tbody id="tblKwitansiBody"></tbody>
+        </table>
+        <div id="emptyKwitansi" class="empty-state" style="display:none">Tidak ada data.</div>
+      </div>
+    </div>
+
+    <!-- LABEL -->
+    <div class="datasek-panel" id="datasekLabel">
+      <div class="toolbar">
+        <input type="text" id="cariLabelSek" placeholder="Cari nama / No. RM / No. Registrasi...">
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>No. Reg</th><th>Tanggal</th><th>Nama Pasien</th><th>Aksi</th></tr></thead>
+          <tbody id="tblLabelSekBody"></tbody>
+        </table>
+        <div id="emptyLabelSek" class="empty-state" style="display:none">Tidak ada data.</div>
+      </div>
+    </div>
+
+    <!-- PAJAK -->
+    <div class="datasek-panel" id="datasekPajak">
+      <form id="formPajak" class="card form-grid">
+        <div class="form-row"><label>Dari Tanggal</label><input type="date" id="pajakDari"></div>
+        <div class="form-row"><label>Sampai Tanggal</label><input type="date" id="pajakSampai"></div>
+        <div class="form-row"><label>Persentase Pajak (%)</label><input type="number" id="pajakPersen" step="0.1" min="0"></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-light" id="btnSimpanPajakPersen">Simpan Persentase</button>
+          <button type="submit" class="btn btn-primary">Hitung</button>
+        </div>
+      </form>
+      <div class="card" id="pajakHasil"></div>
+    </div>
+
+    <!-- LAPORAN MINGGUAN -->
+    <div class="datasek-panel" id="datasekMingguan">
+      <form id="formMingguan" class="card form-grid">
+        <div class="form-row"><label>Pilih Minggu</label><input type="week" id="mingguanWeek"></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div class="card" id="mingguanHasil"></div>
+    </div>
+
+    <!-- LAPORAN BULANAN -->
+    <div class="datasek-panel" id="datasekBulanan">
+      <form id="formBulanan" class="card form-grid">
+        <div class="form-row"><label>Pilih Bulan</label><input type="month" id="bulananMonth"></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div class="card" id="bulananHasil"></div>
+    </div>
+
+    <!-- LAPORAN TAHUNAN -->
+    <div class="datasek-panel" id="datasekTahunan">
+      <form id="formTahunan" class="card form-grid">
+        <div class="form-row"><label>Pilih Tahun</label><select id="tahunanYear"></select></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div class="card" id="tahunanHasil"></div>
+    </div>
+
+    <!-- SHARING DOKTER -->
+    <div class="datasek-panel" id="datasekSharing">
+      <form id="formSharing" class="card form-grid">
+        <div class="form-row"><label>Dari Tanggal</label><input type="date" id="sharingDari"></div>
+        <div class="form-row"><label>Sampai Tanggal</label><input type="date" id="sharingSampai"></div>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Tampilkan</button></div>
+      </form>
+      <div class="card" id="sharingHasil"></div>
     </div>
   </section>
 
@@ -475,6 +649,58 @@
         <thead><tr><th>Nama Dokter</th><th>Aktif</th><th>Aksi</th></tr></thead>
         <tbody id="tblDokterSpBody"></tbody>
       </table>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: KASIR ======================= -->
+  <section id="view-kasir" class="view">
+    <div class="view-header">
+      <h2>Kasir</h2>
+    </div>
+    <div class="datasek-summary" id="kasirSummary"></div>
+    <div class="toolbar">
+      <input type="text" id="cariKasir" placeholder="Cari nama / No. RM / No. Registrasi...">
+      <select id="filterDeptKasir">
+        <option value="">Semua Departemen</option>
+        <option value="lab">Laboratorium</option>
+        <option value="radiologi">Radiologi</option>
+      </select>
+      <select id="filterStatusKasir">
+        <option value="">Semua Status</option>
+        <option value="belum">Belum Lunas</option>
+        <option value="lunas">Lunas</option>
+      </select>
+      <select id="kasirAdminSelect" title="Admin yang bertugas — namanya akan tampil di kwitansi"></select>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr><th>Departemen</th><th>No. Reg</th><th>Tanggal</th><th>Nama Pasien</th><th>Total</th><th>Status Bayar</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="tblKasirBody"></tbody>
+      </table>
+      <div id="emptyKasir" class="empty-state" style="display:none">Tidak ada data.</div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: ADMIN ======================= -->
+  <section id="view-admin" class="view">
+    <div class="view-header">
+      <h2>Data Admin</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newAdminNama" placeholder="Nama admin...">
+      <button class="btn btn-primary" id="btnAddAdmin">Tambah</button>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="cariAdmin" placeholder="Cari nama admin...">
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama Admin</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblAdminBody"></tbody>
+      </table>
+      <div id="emptyAdmin" class="empty-state" style="display:none">Tidak ada data.</div>
     </div>
   </section>
 

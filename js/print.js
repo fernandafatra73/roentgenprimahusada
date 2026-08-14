@@ -182,58 +182,93 @@ function previewReport(reg, ctx) {
 function buildReportRadHTML(reg, ctx, showPrintBar) {
   const settings = ctx.settings;
   const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
-  const radiografer = (ctx.radiograferList || []).find(r => r.id === reg.radiograferId);
-  const dokterSp = (ctx.dokterSpList || []).find(d => d.id === reg.dokterSpId);
+
+  const pemeriksaanNames = (reg.jenisSnapshot || []).map(j => j.nama).join(', ');
 
   let examHTML = '';
   (reg.jenisSnapshot || []).forEach(j => {
     const rec = (reg.hasil || {})[j.id] || {};
     examHTML += `
-      <div class="exam-block">
-        <div class="exam-title">${escapeHTML(j.nama)} <span class="exam-modalitas">(${escapeHTML(j.modalitas)})</span></div>
-        <div class="exam-field-lbl">Hasil Bacaan / Temuan:</div>
-        <div class="exam-field-val">${escapeHTML(rec.hasilBacaan) || '-'}</div>
-        <div class="exam-field-lbl">Kesan:</div>
-        <div class="exam-field-val exam-kesan">${escapeHTML(rec.kesan) || '-'}</div>
+      <div class="rad-exam-block">
+        <div class="rad-exam-title">${escapeHTML(j.nama)}</div>
+        <div class="rad-exam-val">${escapeHTML(rec.hasilBacaan) || '-'}</div>
+        <div class="rad-exam-lbl">Kesan:</div>
+        <div class="rad-exam-val rad-exam-kesan">${escapeHTML(rec.kesan) || '-'}</div>
       </div>`;
   });
 
   return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
   <title>Hasil Radiologi - ${escapeHTML(reg.nama)}</title>
-  ${printBaseStyles()}
   <style>
-    .exam-block { border: 1px solid #ccc; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; }
-    .exam-title { font-weight: 700; color: #0f6e5f; font-size: 14px; margin-bottom: 6px; }
-    .exam-modalitas { font-weight: 400; color: #555; font-size: 12px; }
-    .exam-field-lbl { font-size: 11.5px; color: #555; font-weight: 600; margin-top: 6px; }
-    .exam-field-val { font-size: 13px; white-space: pre-wrap; }
-    .exam-kesan { font-weight: 700; }
+    @page { size: 150mm 210mm; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 12px; }
+    .rad-sheet { width: 100%; }
+    .rad-header-row { display: flex; gap: 6mm; align-items: stretch; margin-bottom: 4mm; }
+    .rad-kop-box { flex: 1; border: 1.5px solid #111; border-radius: 4px; padding: 3mm 4mm; display: flex; align-items: center; gap: 3mm; }
+    .rad-kop-box img { width: 14mm; height: 14mm; object-fit: contain; flex-shrink: 0; }
+    .rad-kop-sub { font-size: 10px; font-weight: 700; letter-spacing: .3px; }
+    .rad-kop-nama { font-size: 19px; font-weight: 800; color: #1155cc; line-height: 1.15; }
+    .rad-kop-alamat { font-size: 9.5px; margin-top: 1mm; }
+    .rad-kepada-box { flex: 0 0 42mm; border: 1.5px solid #111; border-radius: 4px; padding: 3mm; font-size: 10.5px; line-height: 1.7; }
+    table.rad-info { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 4mm; }
+    table.rad-info td { padding: 1.6mm 1mm; border-bottom: 1px solid #999; vertical-align: top; }
+    table.rad-info td.lbl { width: 24mm; font-weight: 600; }
+    table.rad-info td.sep { width: 3mm; }
+    .rad-judul { text-align: center; font-weight: 700; font-size: 13px; text-decoration: underline; margin: 5mm 0 5mm; letter-spacing: .3px; }
+    .rad-exam-block { margin-bottom: 4mm; }
+    .rad-exam-title { font-weight: 700; font-size: 12px; margin-bottom: 1.5mm; }
+    .rad-exam-lbl { font-size: 10.5px; font-weight: 600; margin-top: 2mm; }
+    .rad-exam-val { font-size: 11.5px; white-space: pre-wrap; }
+    .rad-exam-kesan { font-weight: 700; }
+    .rad-footer { display: flex; justify-content: flex-end; margin-top: 12mm; }
+    .rad-footer-box { text-align: right; width: 55mm; font-size: 11.5px; }
+    .rad-sign-space { height: 16mm; }
+    .rad-sign-line { border-top: 1px solid #111; padding-top: 1.5mm; font-weight: 700; letter-spacing: .3px; }
+    .cetak-bar { text-align: center; margin: 4mm 0; }
+    .cetak-bar button { padding: 8px 22px; font-size: 14px; background: #0f6e5f; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    @media print { .cetak-bar { display: none; } }
   </style>
   </head><body>
-  <div class="sheet">
-    ${buildKopHTML(settings)}
-    <div class="judul">HASIL PEMERIKSAAN &amp; EKSPERTISE RADIOLOGI</div>
-    <div class="info-grid">
-      <div class="lbl">No. Registrasi</div><div>:</div><div>${escapeHTML(reg.noReg)}</div>
-      <div class="lbl">Tanggal</div><div>:</div><div>${formatTanggal(reg.tanggal)}</div>
-      <div class="lbl">Nama Pasien</div><div>:</div><div>${escapeHTML(reg.nama)}</div>
-      <div class="lbl">No. RM</div><div>:</div><div>${escapeHTML(reg.noRM)}</div>
-      <div class="lbl">Jenis Kelamin</div><div>:</div><div>${reg.jk === 'P' ? 'Perempuan' : 'Laki-laki'}</div>
-      <div class="lbl">Umur</div><div>:</div><div>${escapeHTML(reg.umur)}</div>
-      <div class="lbl">Alamat</div><div>:</div><div>${escapeHTML(reg.alamat)}</div>
-      <div class="lbl">Dokter Pengirim</div><div>:</div><div>${escapeHTML(dokter ? dokter.nama : '-')}</div>
-      <div class="lbl">Radiografer</div><div>:</div><div>${escapeHTML(radiografer ? radiografer.nama : '-')}</div>
-    </div>
-    ${reg.catatan ? `<div style="font-size:12.5px; margin: -6px 0 14px;"><strong>Indikasi Klinis:</strong> ${escapeHTML(reg.catatan)}</div>` : ''}
-    ${examHTML}
-    <div class="footer-sign">
-      <div class="sign-box">
-        <div>Dokter Spesialis Radiologi,</div>
-        <div class="sign-space"></div>
-        <div><strong>${escapeHTML(dokterSp ? dokterSp.nama : '-')}</strong></div>
+  <div class="rad-sheet">
+    <div class="rad-header-row">
+      <div class="rad-kop-box">
+        <img src="${settings.logo}" alt="logo">
+        <div>
+          <div class="rad-kop-sub">KLINIK ROENTGEN DAN USG</div>
+          <div class="rad-kop-nama">${escapeHTML(settings.namaKlinik)}</div>
+          <div class="rad-kop-alamat">${escapeHTML(settings.alamat)} Telp. ${escapeHTML(settings.telp)}</div>
+        </div>
+      </div>
+      <div class="rad-kepada-box">
+        <div>Kepada Yang terhormat</div>
+        <div>TS : ${escapeHTML(dokter ? dokter.nama : '-')}</div>
+        <div>Di Tempat</div>
       </div>
     </div>
-    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')} — ${escapeHTML(settings.penanggungJawab)}</div>
+    <table class="rad-info">
+      <tr>
+        <td class="lbl">Nama Pasien</td><td class="sep">:</td><td>${escapeHTML(reg.nama)}</td>
+        <td class="lbl">Umur</td><td class="sep">:</td><td>${escapeHTML(reg.umur)}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Alamat</td><td class="sep">:</td><td>${escapeHTML(reg.alamat)}</td>
+        <td class="lbl">Tanggal</td><td class="sep">:</td><td>${formatTanggal(reg.tanggal)}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Pemeriksaan</td><td class="sep">:</td><td>${escapeHTML(pemeriksaanNames)}</td>
+        <td class="lbl">No.</td><td class="sep">:</td><td>${escapeHTML(reg.noReg)}</td>
+      </tr>
+    </table>
+    <div class="rad-judul">HASIL PEMERIKSAAN RADIOLOGI</div>
+    ${examHTML}
+    <div class="rad-footer">
+      <div class="rad-footer-box">
+        <div>Salam Sejawat,</div>
+        <div class="rad-sign-space"></div>
+        <div class="rad-sign-line">RADIOLOG</div>
+      </div>
+    </div>
     ${showPrintBar ? `<div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>` : ''}
   </div>
   </body></html>`;
@@ -337,4 +372,128 @@ function buildLabelHTML(reg, ctx, jumlah) {
 function printLabel(reg, ctx, jumlah) {
   const html = buildLabelHTML(reg, ctx, jumlah);
   openPrintWindow(html, false);
+}
+
+/* ============================ DATA SEKUNDER: KWITANSI ============================ */
+
+function buildKwitansiRadHTML(reg, ctx) {
+  const settings = ctx.settings;
+  const total = Number(reg.totalHarga) || 0;
+  const pemeriksaanNames = (reg.jenisSnapshot || []).map(j => j.nama).join(', ');
+  const noKwitansi = 'KW-' + reg.noReg;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Kwitansi - ${escapeHTML(reg.nama)}</title>
+  ${printBaseStyles()}
+  <style>
+    .kwitansi-box { border: 2px solid #0f6e5f; padding: 20px 24px; margin-top: 10px; }
+    .kwitansi-row { display:flex; margin-bottom:10px; font-size:13.5px; }
+    .kwitansi-row .lbl { width:160px; font-weight:600; }
+    .kwitansi-terbilang { border-top:1px dashed #999; border-bottom:1px dashed #999; padding:10px 0; margin:14px 0; font-style:italic; text-transform:capitalize; }
+    .kwitansi-total { text-align:right; font-size:18px; font-weight:700; color:#0f6e5f; margin:10px 0; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">KWITANSI</div>
+    <div class="kwitansi-box">
+      <div class="kwitansi-row"><div class="lbl">No. Kwitansi</div><div>: ${escapeHTML(noKwitansi)}</div></div>
+      <div class="kwitansi-row"><div class="lbl">Tanggal</div><div>: ${formatTanggal(reg.tanggal)}</div></div>
+      <div class="kwitansi-row"><div class="lbl">Telah terima dari</div><div>: ${escapeHTML(reg.nama)}</div></div>
+      <div class="kwitansi-row"><div class="lbl">Untuk pembayaran</div><div>: ${escapeHTML(pemeriksaanNames)}</div></div>
+      <div class="kwitansi-total">${formatRupiah(total)}</div>
+      <div class="kwitansi-terbilang">Terbilang: ${terbilang(total)} rupiah</div>
+      <div class="footer-sign">
+        <div class="sign-box">
+          <div>Penerima,</div>
+          <div class="sign-space"></div>
+          <div><strong>${escapeHTML(ctx.adminNama || settings.penanggungJawab)}</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Kwitansi</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printKwitansiRad(reg, ctx) {
+  const html = buildKwitansiRadHTML(reg, ctx);
+  openPrintWindow(html, true);
+}
+
+function buildKwitansiLabHTML(reg, ctx) {
+  const settings = ctx.settings;
+  const total = Number(reg.totalHarga) || 0;
+  const pemeriksaanNames = (reg.paketSnapshot || []).map(p => p.nama).join(', ');
+  const noKwitansi = 'KW-' + reg.noReg;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Kwitansi - ${escapeHTML(reg.nama)}</title>
+  ${printBaseStyles()}
+  <style>
+    .kwitansi-box { border: 2px solid #0f6e5f; padding: 20px 24px; margin-top: 10px; }
+    .kwitansi-row { display:flex; margin-bottom:10px; font-size:13.5px; }
+    .kwitansi-row .lbl { width:160px; font-weight:600; }
+    .kwitansi-terbilang { border-top:1px dashed #999; border-bottom:1px dashed #999; padding:10px 0; margin:14px 0; font-style:italic; text-transform:capitalize; }
+    .kwitansi-total { text-align:right; font-size:18px; font-weight:700; color:#0f6e5f; margin:10px 0; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">KWITANSI</div>
+    <div class="kwitansi-box">
+      <div class="kwitansi-row"><div class="lbl">No. Kwitansi</div><div>: ${escapeHTML(noKwitansi)}</div></div>
+      <div class="kwitansi-row"><div class="lbl">Tanggal</div><div>: ${formatTanggal(reg.tanggal)}</div></div>
+      <div class="kwitansi-row"><div class="lbl">Telah terima dari</div><div>: ${escapeHTML(reg.nama)}</div></div>
+      <div class="kwitansi-row"><div class="lbl">Untuk pembayaran</div><div>: ${escapeHTML(pemeriksaanNames)}</div></div>
+      <div class="kwitansi-total">${formatRupiah(total)}</div>
+      <div class="kwitansi-terbilang">Terbilang: ${terbilang(total)} rupiah</div>
+      <div class="footer-sign">
+        <div class="sign-box">
+          <div>Penerima,</div>
+          <div class="sign-space"></div>
+          <div><strong>${escapeHTML(ctx.adminNama || settings.penanggungJawab)}</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Kwitansi</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printKwitansiLab(reg, ctx) {
+  const html = buildKwitansiLabHTML(reg, ctx);
+  openPrintWindow(html, true);
+}
+
+/* ============================ DATA SEKUNDER: LAPORAN GENERIK ============================ */
+/* Mencetak ulang isi kontainer laporan (Pajak / Mingguan / Bulanan / Tahunan / Sharing Dokter)
+   yang sudah dirender di layar, dibungkus kop surat & judul. */
+function printLaporanContainer(containerSelector, judul, periodeLabel) {
+  const el = document.querySelector(containerSelector);
+  if (!el) return;
+  const settings = DB.getSettings();
+  const html = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>${escapeHTML(judul)}</title>
+  ${printBaseStyles()}
+  <style>
+    .datasek-summary { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+    .datasek-stat { border:1px solid #999; border-radius:6px; padding:10px 14px; min-width:140px; }
+    .datasek-stat .stat-label { font-size:11px; color:#555; margin-bottom:3px; }
+    .datasek-stat .stat-value { font-size:16px; font-weight:700; color:#0f6e5f; }
+    table.tbl { width:100%; border-collapse:collapse; margin-bottom:14px; font-size:12.5px; }
+    table.tbl th, table.tbl td { border:1px solid #999; padding:5px 8px; text-align:left; }
+    table.tbl th { background:#eef6f4; }
+    h4 { margin: 14px 0 6px; }
+    .form-actions { display:none; }
+    input, select { border:none; background:transparent; font-size:12.5px; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">${escapeHTML(judul).toUpperCase()}</div>
+    ${periodeLabel ? `<div style="text-align:center; font-size:12.5px; margin:-8px 0 14px;">${escapeHTML(periodeLabel)}</div>` : ''}
+    ${el.innerHTML}
+    <div style="margin-top:14px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')} — ${escapeHTML(settings.penanggungJawab)}</div>
+  </div>
+  </body></html>`;
+  openPrintWindow(html, true);
 }
