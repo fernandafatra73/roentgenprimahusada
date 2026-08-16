@@ -236,7 +236,7 @@ function renderDaftar() {
     `;
     const aksiCell = tr.querySelector('.aksi-cell');
     aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openForm(r.id)));
-    aksiCell.appendChild(makeBtn('Edit2', 'btn-danger', () => openHasil2(r.id)));
+    aksiCell.appendChild(makeBtn('editlaboratorium', 'btn-danger', () => openHasil2(r.id)));
     aksiCell.appendChild(makeBtn('Hasil', 'btn-secondary', () => openHasil(r.id)));
     aksiCell.appendChild(makeBtn('Preview', 'btn-light', () => previewReport(r, printCtx())));
     aksiCell.appendChild(makeBtn('Print', 'btn-primary', () => printReport(r, printCtx())));
@@ -273,6 +273,13 @@ async function hapusRegistrasi(id) {
 function openLabelModal(reg) {
   $('#labelRegInfo').innerHTML = `<strong>${escapeHTML(reg.nama)}</strong><br>No.RM: ${escapeHTML(reg.noRM)} — ${formatTanggal(reg.tanggal)}`;
   $('#labelJumlah').value = 1;
+  $('#labelJumlahWrap').style.display = '';
+  $('#labelJumlahWrap').firstChild.textContent = 'Jumlah lembar: ';
+  $('#labelRadGridWrap').style.display = 'none';
+  $('#labelHint').textContent = '1 label per lembar A4, ukuran 8 cm (lebar) x 6 cm (tinggi).';
+  $('#labelOk').style.display = '';
+  $('#labelOkAmplop').style.display = 'none';
+  $('#labelOkLabel').style.display = 'none';
   const modal = $('#modalLabel');
   modal.classList.add('show');
   const okBtn = $('#labelOk');
@@ -290,6 +297,69 @@ function openLabelModal(reg) {
   const onCancel = () => cleanup();
   okBtn.addEventListener('click', onOk);
   cancelBtn.addEventListener('click', onCancel);
+}
+
+/* Label Radiologi menawarkan 2 pilihan cetak: Amplop (1 label besar per
+   lembar A4, seperti label Lab) atau Label (lembar 21x15cm, 3 kolom x 4
+   baris — user tinggal pilih posisi mana saja yang mau diisi, supaya
+   lembar label yang sudah terpakai sebagian tetap bisa dipakai). */
+function buildLabelRadGridHTML() {
+  let html = '';
+  for (let i = 0; i < LABEL_RAD_PER_HALAMAN; i++) {
+    html += `
+      <label class="label-rad-slot">
+        <input type="checkbox" class="label-rad-slot-cb" value="${i}">
+        Label ${i + 1}
+      </label>`;
+  }
+  return html;
+}
+
+function openLabelModalRad(reg) {
+  $('#labelRegInfo').innerHTML = `<strong>${escapeHTML(reg.nama)}</strong><br>No.RM: ${escapeHTML(reg.noRM)} — ${formatTanggal(reg.tanggal)}`;
+  $('#labelJumlah').value = 1;
+  $('#labelJumlahWrap').style.display = '';
+  $('#labelJumlahWrap').firstChild.textContent = 'Jumlah amplop: ';
+  $('#labelRadGridWrap').style.display = '';
+  $('#labelRadGrid').innerHTML = buildLabelRadGridHTML();
+  $('#labelHint').textContent = 'Amplop: 1 label besar per lembar A4. Label: lembar 21x15cm, 3 kolom x 4 baris (12 posisi).';
+  $('#labelOk').style.display = 'none';
+  $('#labelOkAmplop').style.display = '';
+  $('#labelOkLabel').style.display = '';
+  const modal = $('#modalLabel');
+  modal.classList.add('show');
+  const amplopBtn = $('#labelOkAmplop');
+  const labelBtn = $('#labelOkLabel');
+  const cancelBtn = $('#labelCancel');
+  const gridEl = $('#labelRadGrid');
+  const onGridClick = (e) => {
+    const cb = e.target.closest('.label-rad-slot-cb');
+    if (!cb) return;
+    cb.closest('.label-rad-slot').classList.toggle('selected', cb.checked);
+  };
+  const cleanup = () => {
+    modal.classList.remove('show');
+    amplopBtn.removeEventListener('click', onAmplop);
+    labelBtn.removeEventListener('click', onLabel);
+    cancelBtn.removeEventListener('click', onCancel);
+    gridEl.removeEventListener('change', onGridClick);
+  };
+  const onAmplop = () => {
+    const jumlah = Math.max(1, parseInt($('#labelJumlah').value, 10) || 1);
+    printLabel(reg, printCtxRad(), jumlah);
+    cleanup();
+  };
+  const onLabel = () => {
+    const selected = $all('.label-rad-slot-cb').filter(cb => cb.checked).map(cb => Number(cb.value));
+    if (selected.length === 0) { showToast('Pilih minimal satu posisi label.'); return; }
+    printLabelRad(reg, printCtxRad(), selected);
+    cleanup();
+  };
+  const onCancel = () => cleanup();
+  amplopBtn.addEventListener('click', onAmplop);
+  labelBtn.addEventListener('click', onLabel);
+  cancelBtn.addEventListener('click', onCancel);
+  gridEl.addEventListener('change', onGridClick);
 }
 
 /* ============================ FORM PENDAFTARAN ============================ */
@@ -633,8 +703,8 @@ function openHasil2(regId) {
     table.className = 'tbl hasil-edit-tbl';
     table.innerHTML = `
       <thead>
-        <tr class="kategori-head"><th colspan="3">${escapeHTML(pk.nama)}</th></tr>
-        <tr><th>Pemeriksaan</th><th>Hasil</th><th>Nilai Rujukan</th></tr>
+        <tr class="kategori-head"><th colspan="4">${escapeHTML(pk.nama)}</th></tr>
+        <tr><th>Pemeriksaan</th><th>Hasil</th><th>Nilai Rujukan</th><th></th></tr>
       </thead>
       <tbody></tbody>`;
     const tbody = table.querySelector('tbody');
@@ -648,6 +718,7 @@ function openHasil2(regId) {
           <span class="hasil-flag"></span>
         </td>
         <td><input type="text" data-testid="${t.id}" class="nr2-input" value="${escapeHTML(rec.nilaiRujukan)}"></td>
+        <td class="aksi-cell"></td>
       `;
       const hasilInput = tr.querySelector('.hasil2-input');
       const nrInput = tr.querySelector('.nr2-input');
@@ -667,12 +738,58 @@ function openHasil2(regId) {
       hasilInput.addEventListener('input', updateFlag);
       nrInput.addEventListener('input', updateFlag);
       updateFlag();
+      tr.querySelector('.aksi-cell').appendChild(makeBtn('Hapus', 'btn-danger', () => hapusHasilTest2(regId, pk.id, t.id)));
       tbody.appendChild(tr);
     });
+
+    const tambahTr = document.createElement('tr');
+    tambahTr.className = 'hasil-tambah-row';
+    tambahTr.innerHTML = `
+      <td colspan="3"><input type="text" class="tambah-item-input" placeholder="Nama pemeriksaan baru..."></td>
+      <td class="aksi-cell"></td>
+    `;
+    const tambahInput = tambahTr.querySelector('.tambah-item-input');
+    tambahTr.querySelector('.aksi-cell').appendChild(makeBtn('+ Tambah', 'btn-secondary', () => {
+      const nama = tambahInput.value.trim();
+      if (!nama) { showToast('Nama pemeriksaan tidak boleh kosong.'); return; }
+      tambahItemPemeriksaanLab2(regId, pk.id, nama);
+    }));
+    tbody.appendChild(tambahTr);
+
     wrap.appendChild(table);
   });
 
   showView('hasil2');
+}
+
+async function hapusHasilTest2(regId, paketId, testId) {
+  const ok = await confirmAsync('Hapus pemeriksaan ini dari hasil pasien?');
+  if (!ok) return;
+  const list = DB.getRegistrasi();
+  const reg = list.find(r => r.id === regId);
+  if (!reg) return;
+  const pk = (reg.paketSnapshot || []).find(p => p.id === paketId);
+  if (pk) pk.tests = pk.tests.filter(t => t.id !== testId);
+  if (reg.hasil) delete reg.hasil[testId];
+  DB.saveRegistrasi(list);
+  showToast('Pemeriksaan dihapus dari hasil pasien.');
+  openHasil2(regId);
+}
+
+function tambahItemPemeriksaanLab2(regId, paketId, nama) {
+  const list = DB.getRegistrasi();
+  const reg = list.find(r => r.id === regId);
+  if (!reg) return;
+  const pk = (reg.paketSnapshot || []).find(p => p.id === paketId);
+  if (!pk) return;
+  const test = { id: uid('tst'), nama, satuan: '', nilaiRujukan: '' };
+  pk.tests = pk.tests || [];
+  pk.tests.push(test);
+  reg.hasil = reg.hasil || {};
+  reg.hasil[test.id] = { hasil: '', satuan: '', nilaiRujukan: '' };
+  DB.saveRegistrasi(list);
+  showToast(`"${nama}" ditambahkan ke ${pk.nama}.`);
+  openHasil2(regId);
 }
 
 $('#formHasil2').addEventListener('submit', (e) => {
@@ -1017,6 +1134,7 @@ $('#btnAddObat').addEventListener('click', () => {
 
 let editingRegRadId = null;
 let hasilRegRadId = null;
+let hasilRadKesanOnly = false;
 
 function regStatusRad(reg) {
   const ids = Object.keys(reg.hasil || {});
@@ -1083,10 +1201,11 @@ function renderDaftarRad() {
     aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openFormRad(r.id)));
     aksiCell.appendChild(makeBtn('Edit Radiologi', 'btn-light', () => openEditRadiologi()));
     aksiCell.appendChild(makeBtn('Hasil', 'btn-secondary', () => openHasilRad(r.id)));
+    aksiCell.appendChild(makeBtn('Hasil Tanpa Bacaan', 'btn-secondary', () => openHasilRad(r.id, true)));
     aksiCell.appendChild(makeBtn('Preview', 'btn-light', () => previewReportRad(r, printCtxRad())));
     aksiCell.appendChild(makeBtn('Print Lengkap', 'btn-primary', () => printReportRad(r, printCtxRad())));
     aksiCell.appendChild(makeBtn('Print Tanpa Bacaan', 'btn-primary', () => printReportRad(r, printCtxRad(), true)));
-    aksiCell.appendChild(makeBtn('Label', 'btn-light', () => openLabelModal(r)));
+    aksiCell.appendChild(makeBtn('Label', 'btn-light', () => bukaCetakUniversalUntuk(r)));
     if (currentUser && currentUser.role !== 'karyawan') {
       aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', () => hapusRegistrasiRad(r.id)));
     }
@@ -1302,10 +1421,11 @@ $('#formDaftarRad').addEventListener('submit', (e) => {
 
 /* ============================ RADIOLOGI: HASIL & EKSPERTISE ============================ */
 
-function openHasilRad(regId) {
+function openHasilRad(regId, kesanOnly) {
   const reg = DB.getRegistrasiRadiologi().find(r => r.id === regId);
   if (!reg) return;
   hasilRegRadId = regId;
+  hasilRadKesanOnly = !!kesanOnly;
 
   const dokter = DB.getDokter().find(d => d.id === reg.dokterId);
   const radiografer = DB.getRadiografer().find(r => r.id === reg.radiograferId);
@@ -1323,6 +1443,11 @@ function openHasilRad(regId) {
 
   const wrap = $('#hasilRadWrap');
   wrap.innerHTML = '';
+  if (!reg.jenisSnapshot || reg.jenisSnapshot.length === 0) {
+    wrap.innerHTML = `<div class="empty-state">Belum ada jenis pemeriksaan pada pendaftaran ini, jadi Hasil Bacaan &amp; Kesan tidak bisa diisi. Buka <strong>Edit</strong> pada pendaftaran pasien ini lalu pilih minimal satu jenis pemeriksaan.</div>`;
+    showView('rad-hasil');
+    return;
+  }
   const kesanTemplateMap = DB.getKesanTemplate();
   const bacaanTemplateMap = DB.getBacaanTemplate();
   (reg.jenisSnapshot || []).forEach(j => {
@@ -1333,20 +1458,27 @@ function openHasilRad(regId) {
     card.className = 'rad-exam-card';
     card.innerHTML = `
       <h4>${escapeHTML(j.nama)} <span class="small-text">(${escapeHTML(j.modalitas)})</span></h4>
-      <label>Hasil Bacaan / Temuan</label>
-      ${bacaanOptions.length ? `
-      <select class="rad-bacaan-template-select" data-jenisid="${j.id}">
-        <option value="">-- pilih dari bacaan tersimpan (opsional) --</option>
-        ${bacaanOptions.map(t => `<option value="${t.id}">${escapeHTML(t.bacaan.length > 70 ? t.bacaan.slice(0, 70) + '…' : t.bacaan)}</option>`).join('')}
-      </select>` : ''}
-      <textarea rows="3" class="rad-temuan-input" data-jenisid="${j.id}">${escapeHTML(rec.hasilBacaan)}</textarea>
-      <label>Kesan</label>
-      ${kesanOptions.length ? `
-      <select class="rad-kesan-template-select" data-jenisid="${j.id}">
-        <option value="">-- pilih dari kesan tersimpan (opsional) --</option>
-        ${kesanOptions.map(t => `<option value="${t.id}">${escapeHTML(t.kesan.length > 70 ? t.kesan.slice(0, 70) + '…' : t.kesan)}</option>`).join('')}
-      </select>` : ''}
-      <textarea rows="2" class="rad-kesan-input" data-jenisid="${j.id}">${escapeHTML(rec.kesan)}</textarea>
+      <div class="rad-hasil-stack">
+        ${hasilRadKesanOnly ? '' : `
+        <div class="rad-hasil-block">
+          <label>Hasil Bacaan / Temuan</label>
+          ${bacaanOptions.length ? `
+          <select class="rad-bacaan-template-select" data-jenisid="${j.id}">
+            <option value="">-- pilih dari bacaan tersimpan (opsional) --</option>
+            ${bacaanOptions.map(t => `<option value="${t.id}">${escapeHTML(t.bacaan.length > 70 ? t.bacaan.slice(0, 70) + '…' : t.bacaan)}</option>`).join('')}
+          </select>` : ''}
+          <textarea rows="4" class="rad-temuan-input" data-jenisid="${j.id}">${escapeHTML(rec.hasilBacaan)}</textarea>
+        </div>`}
+        <div class="rad-hasil-block${hasilRadKesanOnly ? '' : ' rad-hasil-block-kesan'}">
+          <label>Kesan</label>
+          ${kesanOptions.length ? `
+          <select class="rad-kesan-template-select" data-jenisid="${j.id}">
+            <option value="">-- pilih dari kesan tersimpan (opsional) --</option>
+            ${kesanOptions.map(t => `<option value="${t.id}">${escapeHTML(t.kesan.length > 70 ? t.kesan.slice(0, 70) + '…' : t.kesan)}</option>`).join('')}
+          </select>` : ''}
+          <textarea rows="3" class="rad-kesan-input" data-jenisid="${j.id}">${escapeHTML(rec.kesan)}</textarea>
+        </div>
+      </div>
       <div class="aksi-cell"></div>
     `;
     card.querySelector('.aksi-cell').appendChild(makeBtn('Hapus Pemeriksaan', 'btn-danger', () => hapusHasilTestRad(regId, j.id)));
@@ -1389,7 +1521,7 @@ async function hapusHasilTestRad(regId, jenisId) {
   if (reg.hasil) delete reg.hasil[jenisId];
   DB.saveRegistrasiRadiologi(list);
   showToast('Pemeriksaan dihapus dari hasil pasien.');
-  openHasilRad(regId);
+  openHasilRad(regId, hasilRadKesanOnly);
 }
 
 $('#formHasilRad').addEventListener('submit', (e) => {
@@ -1481,6 +1613,22 @@ function bacaanTemplateBadgeHTML(jenisId) {
     : '<span class="accordion-badge">Belum ada bacaan</span>';
 }
 
+function penyakitTemplateBadgeHTML(jenisId) {
+  const list = DB.getPenyakitTemplate()[jenisId] || [];
+  return list.length > 0
+    ? `<span class="accordion-badge accordion-badge-added">${list.length} Penyakit Tersimpan</span>`
+    : '<span class="accordion-badge">Belum ada penyakit</span>';
+}
+
+function penyakitRowHTML(entry, i) {
+  return `
+    <tr data-entryid="${entry.id}">
+      <td>${i + 1}</td>
+      <td><input type="text" class="inline-edit penyakit-nama-input" value="${escapeHTML(entry.nama)}"></td>
+      <td class="aksi-cell"><button type="button" class="btn btn-sm btn-danger penyakit-hapus-btn">Hapus</button></td>
+    </tr>`;
+}
+
 function renderBacaanTemplateMaster() {
   const jenisAll = DB.getJenisRadiologi().filter(j => j.aktif !== false);
   const wrap = $('#bacaanTemplateWrap');
@@ -1537,22 +1685,45 @@ function renderBacaanTabPanel() {
   const j = DB.getJenisRadiologi().find(x => x.id === activeBacaanTabId);
   if (!j) { activeBacaanTabId = null; renderBacaanTabPanel(); return; }
 
-  const list = (DB.getBacaanTemplate()[activeBacaanTabId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
-  const entriesHTML = list.length === 0
-    ? `<div class="small-text">Belum ada bacaan tersimpan untuk pemeriksaan ini.</div>`
-    : list.map(entry => bacaanEntryHTML(activeBacaanTabId, entry)).join('');
+  const kesanList = (DB.getKesanTemplate()[activeBacaanTabId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
+  const kesanEntriesHTML = kesanList.length === 0
+    ? `<div class="small-text">Belum ada kesan tersimpan untuk pemeriksaan ini.</div>`
+    : kesanList.map(entry => kesanEntryHTML(activeBacaanTabId, entry)).join('');
+
+  const penyakitList = (DB.getPenyakitTemplate()[activeBacaanTabId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
+  const penyakitRowsHTML = penyakitList.length === 0
+    ? `<tr><td colspan="3" class="empty-state">Belum ada data penyakit untuk pemeriksaan ini.</td></tr>`
+    : penyakitList.map((entry, i) => penyakitRowHTML(entry, i)).join('');
 
   panel.innerHTML = `
     <div class="kesan-panel-head">
       <h3>${escapeHTML(j.nama)} <span class="small-text">(${escapeHTML(j.modalitas)})</span></h3>
-      ${bacaanTemplateBadgeHTML(activeBacaanTabId)}
+      ${kesanTemplateBadgeHTML(activeBacaanTabId)}
     </div>
-    <label>Tambah Varian Bacaan Baru</label>
-    <textarea rows="4" class="kesan-template-input" placeholder="Tulis salah satu kemungkinan hasil bacaan untuk pemeriksaan ini..."></textarea>
-    <div class="accordion-actions" style="margin-bottom:16px;">
-      <button type="button" class="btn btn-sm btn-primary kesan-template-tambah-btn">+ Tambah Bacaan</button>
+    <div class="kesan-linked-section" id="bacaanLinkedKesanBlock" style="margin-top:0; padding-top:0; border-top:none;">
+      <label>Tambah Varian Kesan Baru</label>
+      <textarea rows="4" class="kesan-linked-input" placeholder="Tulis salah satu kemungkinan kesan untuk pemeriksaan ini..."></textarea>
+      <div class="accordion-actions" style="margin-bottom:16px;">
+        <button type="button" class="btn btn-sm btn-primary kesan-linked-tambah-btn">+ Tambah Kesan</button>
+      </div>
+      <div class="kesan-entry-list">${kesanEntriesHTML}</div>
     </div>
-    <div class="kesan-entry-list">${entriesHTML}</div>
+    <div class="kesan-linked-section" id="bacaanLinkedPenyakitBlock">
+      <div class="kesan-panel-head">
+        <h3>Data Penyakit <span class="small-text">(terhubung dengan pemeriksaan ini)</span></h3>
+        ${penyakitTemplateBadgeHTML(activeBacaanTabId)}
+      </div>
+      <div class="form-inline-add">
+        <input type="text" id="penyakitBaruInput" placeholder="Nama penyakit...">
+        <button type="button" class="btn btn-sm btn-primary penyakit-tambah-btn">+ Tambah</button>
+      </div>
+      <div class="table-wrap" style="margin-top:12px;">
+        <table class="tbl">
+          <thead><tr><th>No</th><th>Nama Penyakit</th><th>Aksi</th></tr></thead>
+          <tbody>${penyakitRowsHTML}</tbody>
+        </table>
+      </div>
+    </div>
   `;
 }
 
@@ -1566,7 +1737,131 @@ $('#bacaanTemplateWrap').addEventListener('click', (e) => {
   }
 });
 
+$('#bacaanTabPanel').addEventListener('change', (e) => {
+  const namaInput = e.target.closest('.penyakit-nama-input');
+  if (!namaInput) return;
+  const entryId = namaInput.closest('tr').dataset.entryid;
+  const nama = namaInput.value.trim();
+  if (!nama) { showToast('Nama penyakit tidak boleh kosong.'); renderBacaanTabPanel(); return; }
+  const templates = DB.getPenyakitTemplate();
+  const entry = (templates[activeBacaanTabId] || []).find(x => x.id === entryId);
+  if (entry) entry.nama = nama;
+  DB.savePenyakitTemplate(templates);
+  showToast('Penyakit diperbarui.');
+});
+
 $('#bacaanTabPanel').addEventListener('click', (e) => {
+  const penyakitBlock = e.target.closest('#bacaanLinkedPenyakitBlock');
+  if (penyakitBlock) {
+    const tambahPenyakitBtn = e.target.closest('.penyakit-tambah-btn');
+    if (tambahPenyakitBtn) {
+      const input = $('#penyakitBaruInput');
+      const nama = input.value.trim();
+      if (!nama) { showToast('Tulis nama penyakit terlebih dahulu.'); return; }
+      const templates = DB.getPenyakitTemplate();
+      if (!templates[activeBacaanTabId]) templates[activeBacaanTabId] = [];
+      templates[activeBacaanTabId].push({ id: uid('pyk'), nama, createdAt: Date.now() });
+      DB.savePenyakitTemplate(templates);
+      showToast('Penyakit baru ditambahkan.');
+      renderBacaanTabPanel();
+      return;
+    }
+    const hapusPenyakitBtn = e.target.closest('.penyakit-hapus-btn');
+    if (hapusPenyakitBtn) {
+      const entryId = hapusPenyakitBtn.closest('tr').dataset.entryid;
+      const templates = DB.getPenyakitTemplate();
+      templates[activeBacaanTabId] = (templates[activeBacaanTabId] || []).filter(entry => entry.id !== entryId);
+      DB.savePenyakitTemplate(templates);
+      showToast('Penyakit dihapus.');
+      renderBacaanTabPanel();
+      return;
+    }
+    return;
+  }
+
+  const linkedBlock = e.target.closest('#bacaanLinkedKesanBlock');
+  if (linkedBlock) {
+    const linkedTambahBtn = e.target.closest('.kesan-linked-tambah-btn');
+    if (linkedTambahBtn) {
+      const textarea = $('#bacaanLinkedKesanBlock .kesan-linked-input');
+      const teks = textarea.value.trim();
+      if (!teks) { showToast('Tulis kesan terlebih dahulu.'); return; }
+      const templates = DB.getKesanTemplate();
+      if (!templates[activeBacaanTabId]) templates[activeBacaanTabId] = [];
+      templates[activeBacaanTabId].push({ id: uid('ks'), kesan: teks, createdAt: Date.now() });
+      DB.saveKesanTemplate(templates);
+      showToast('Kesan baru ditambahkan.');
+      renderBacaanTabPanel();
+      return;
+    }
+    const linkedCopyBtn = e.target.closest('.kesan-entry-copy-btn');
+    if (linkedCopyBtn) {
+      const entryId = linkedCopyBtn.closest('.kesan-entry').dataset.entryid;
+      const entry = (DB.getKesanTemplate()[activeBacaanTabId] || []).find(x => x.id === entryId);
+      if (entry) {
+        copyTextToClipboard(entry.kesan);
+        showToast('Kesan disalin ke clipboard.');
+      }
+      return;
+    }
+    const linkedEditBtn = e.target.closest('.kesan-entry-edit-btn');
+    if (linkedEditBtn) {
+      editingKesanEntryId = linkedEditBtn.closest('.kesan-entry').dataset.entryid;
+      renderBacaanTabPanel();
+      return;
+    }
+    const linkedBatalBtn = e.target.closest('.kesan-entry-batal-edit-btn');
+    if (linkedBatalBtn) {
+      editingKesanEntryId = null;
+      renderBacaanTabPanel();
+      return;
+    }
+    const linkedSimpanEditBtn = e.target.closest('.kesan-entry-simpan-edit-btn');
+    if (linkedSimpanEditBtn) {
+      const entryId = linkedSimpanEditBtn.closest('.kesan-entry').dataset.entryid;
+      const teks = linkedSimpanEditBtn.closest('.kesan-entry').querySelector('.kesan-entry-edit-input').value.trim();
+      if (!teks) { showToast('Kesan tidak boleh kosong.'); return; }
+      const templates = DB.getKesanTemplate();
+      const entry = (templates[activeBacaanTabId] || []).find(x => x.id === entryId);
+      if (entry) entry.kesan = teks;
+      DB.saveKesanTemplate(templates);
+      editingKesanEntryId = null;
+      showToast('Kesan diperbarui.');
+      renderBacaanTabPanel();
+      return;
+    }
+    const linkedHapusBtn = e.target.closest('.kesan-entry-hapus-btn');
+    if (linkedHapusBtn) {
+      const entryId = linkedHapusBtn.closest('.kesan-entry').dataset.entryid;
+      const templates = DB.getKesanTemplate();
+      templates[activeBacaanTabId] = (templates[activeBacaanTabId] || []).filter(entry => entry.id !== entryId);
+      DB.saveKesanTemplate(templates);
+      showToast('Kesan dihapus.');
+      renderBacaanTabPanel();
+      return;
+    }
+    const linkedPatientLink = e.target.closest('.kesan-entry-patient-link');
+    if (linkedPatientLink) {
+      const regId = linkedPatientLink.dataset.regid;
+      const reg = DB.getRegistrasiRadiologi().find(r => r.id === regId);
+      if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
+      openHasilRad(regId);
+      return;
+    }
+    const linkedEntryRow = e.target.closest('.kesan-entry');
+    if (linkedEntryRow && e.target.tagName !== 'TEXTAREA') {
+      const entryId = linkedEntryRow.dataset.entryid;
+      if (editingKesanEntryId === entryId) return;
+      const entry = (DB.getKesanTemplate()[activeBacaanTabId] || []).find(x => x.id === entryId);
+      if (!entry) return;
+      if (!entry.patientRegId) { showToast('Kesan ini belum terhubung ke data pasien manapun.'); return; }
+      const reg = DB.getRegistrasiRadiologi().find(r => r.id === entry.patientRegId);
+      if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
+      openHasilRad(entry.patientRegId);
+    }
+    return;
+  }
+
   const tambahBtn = e.target.closest('.kesan-template-tambah-btn');
   if (tambahBtn) {
     const textarea = $('#bacaanTabPanel .kesan-template-input');
@@ -1974,6 +2269,95 @@ function renderKwitansiList() {
 }
 $('#cariKwitansi').addEventListener('input', renderKwitansiList);
 
+/* ------------------------------ Cetak Universal ------------------------------ */
+/* Pencarian cepat pendaftaran radiologi apa saja untuk cetak ulang Label,
+   di luar alur Pendaftaran / Data Sekunder yang biasa. */
+
+function renderCetakUniversal() {
+  const q = ($('#cariCetakUniversal').value || '').toLowerCase().trim();
+  const dokterList = DB.getDokter();
+  const list = DB.getRegistrasiRadiologi()
+    .filter(r => !q || (r.nama || '').toLowerCase().includes(q) || (r.noRM || '').toLowerCase().includes(q) || (r.noReg || '').toLowerCase().includes(q))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const tbody = $('#tblCetakUniversalBody');
+  tbody.innerHTML = '';
+  $('#emptyCetakUniversal').style.display = list.length ? 'none' : 'block';
+  list.forEach(r => {
+    const dokter = dokterList.find(d => d.id === r.dokterId);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(r.noReg)}</td>
+      <td>${escapeHTML(r.nama)}</td>
+      <td>${escapeHTML(r.umur || '-')}</td>
+      <td class="small-text">${escapeHTML(r.alamat || '-')}</td>
+      <td>${escapeHTML(dokter ? dokter.nama : '-')}</td>
+      <td>${formatTanggal(r.tanggal)}</td>
+      <td class="aksi-cell"></td>
+    `;
+    tr.querySelector('.aksi-cell').appendChild(makeBtn('Cetak Label', 'btn-light', () => openLabelModalRad(r)));
+    tbody.appendChild(tr);
+  });
+}
+$('#cariCetakUniversal').addEventListener('input', renderCetakUniversal);
+
+/* Dipakai tombol Label di Pendaftaran Radiologi supaya cetak label lewat
+   satu pintu yang sama (Cetak Universal), bukan buka modal langsung. */
+function bukaCetakUniversalUntuk(reg) {
+  showView('rad-cetak-universal');
+  $('#cariCetakUniversal').value = reg.noReg;
+  renderCetakUniversal();
+}
+
+/* ------------------------------ Print Hasil Radiologi ------------------------------ */
+/* Kumpulan pilihan cetak Hasil Pemeriksaan Radiologi dalam satu halaman:
+   ukuran kertas (A4 210x297mm atau 15x21cm), isi (bacaan+kesan atau kesan
+   saja), dan logo (pakai kop klinik atau tanpa logo untuk kertas yang
+   sudah ada logo cetakan sendiri) — dipilih lewat dropdown lalu Cetak. */
+
+const PRINT_HASIL_RAD_UKURAN = {
+  a4: null,
+  kecil: { pageSize: '150mm 210mm', margin: '10mm' }
+};
+
+function renderPrintHasilRadiologi() {
+  const q = ($('#cariPrintHasil').value || '').toLowerCase().trim();
+  const list = DB.getRegistrasiRadiologi()
+    .filter(r => !q || (r.nama || '').toLowerCase().includes(q) || (r.noRM || '').toLowerCase().includes(q) || (r.noReg || '').toLowerCase().includes(q))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const tbody = $('#tblPrintHasilBody');
+  tbody.innerHTML = '';
+  $('#emptyPrintHasil').style.display = list.length ? 'none' : 'block';
+  list.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHTML(r.noReg)}</td><td>${escapeHTML(r.nama)}</td><td>${formatTanggal(r.tanggal)}</td><td class="aksi-cell"></td>`;
+    const aksiCell = tr.querySelector('.aksi-cell');
+
+    const selUkuran = document.createElement('select');
+    selUkuran.className = 'print-hasil-select';
+    selUkuran.innerHTML = `<option value="a4">A4 (210x297mm)</option><option value="kecil">15x21cm</option>`;
+
+    const selIsi = document.createElement('select');
+    selIsi.className = 'print-hasil-select';
+    selIsi.innerHTML = `<option value="lengkap">Bacaan + Kesan</option><option value="kesan">Hanya Kesan</option>`;
+
+    const selLogo = document.createElement('select');
+    selLogo.className = 'print-hasil-select';
+    selLogo.innerHTML = `<option value="logo">Dengan Logo</option><option value="tanpalogo">Tanpa Logo</option>`;
+
+    aksiCell.appendChild(selUkuran);
+    aksiCell.appendChild(selIsi);
+    aksiCell.appendChild(selLogo);
+    aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => {
+      const tanpaBacaan = selIsi.value === 'kesan';
+      const opts = Object.assign({}, PRINT_HASIL_RAD_UKURAN[selUkuran.value]);
+      if (selLogo.value === 'tanpalogo') opts.tanpaLogo = true;
+      printReportRad(r, printCtxRad(), tanpaBacaan, opts);
+    }));
+    tbody.appendChild(tr);
+  });
+}
+$('#cariPrintHasil').addEventListener('input', renderPrintHasilRadiologi);
+
 /* ------------------------------ Label ------------------------------ */
 
 function renderLabelSekList() {
@@ -1987,7 +2371,7 @@ function renderLabelSekList() {
   list.forEach(r => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${escapeHTML(r.noReg)}</td><td>${formatTanggal(r.tanggal)}</td><td>${escapeHTML(r.nama)}</td><td class="aksi-cell"></td>`;
-    tr.querySelector('.aksi-cell').appendChild(makeBtn('Cetak Label', 'btn-light', () => openLabelModal(r)));
+    tr.querySelector('.aksi-cell').appendChild(makeBtn('Cetak Label', 'btn-light', () => openLabelModalRad(r)));
     tbody.appendChild(tr);
   });
 }
@@ -2135,7 +2519,7 @@ function pemeriksaanNamesFromReg(reg) {
   return snap.map(x => x.nama).join(', ');
 }
 
-function cetakLaporanSharingDokter(dokterId, list, persen, periodeLabel) {
+function cetakLaporanSharingDokter(dokterId, list, persen, periodeLabel, adminNama) {
   const dokterList = DB.getDokter();
   const d = dokterList.find(x => x.id === dokterId);
   const dokterNama = d ? d.nama : '(tidak diketahui)';
@@ -2147,12 +2531,12 @@ function cetakLaporanSharingDokter(dokterId, list, persen, periodeLabel) {
     jumlahSharing: (Number(r.totalHarga) || 0) * persen / 100
   }));
   const totalSharing = rows.reduce((s, r) => s + r.jumlahSharing, 0);
-  printLaporanSharingDokter(dokterNama, rows, totalSharing, periodeLabel);
+  printLaporanSharingDokter(dokterNama, rows, totalSharing, periodeLabel, adminNama);
 }
 
 /* Sebelum cetak, radiolog bisa meninjau & menyesuaikan Jumlah Sharing per
    pasien satu per satu (bukan cuma persentase rata) lewat modal ini. */
-function openEditSharingModal(dokterId, list, persen, periodeLabel) {
+function openEditSharingModal(dokterId, list, persen, periodeLabel, adminNama) {
   const dokterList = DB.getDokter();
   const d = dokterList.find(x => x.id === dokterId);
   const dokterNama = d ? d.nama : '(tidak diketahui)';
@@ -2191,7 +2575,7 @@ function openEditSharingModal(dokterId, list, persen, periodeLabel) {
       return { ...r, jumlahSharing: Number(input.value) || 0 };
     });
     const totalSharing = editedRows.reduce((s, r) => s + r.jumlahSharing, 0);
-    printLaporanSharingDokter(dokterNama, editedRows, totalSharing, periodeLabel);
+    printLaporanSharingDokter(dokterNama, editedRows, totalSharing, periodeLabel, adminNama);
     cleanup();
   };
   const onCancel = () => cleanup();
@@ -2251,11 +2635,11 @@ $('#formSharing').addEventListener('submit', (e) => {
     const aksiCell = tr.querySelector('.aksi-cell');
     aksiCell.appendChild(makeBtn('Cetak', 'btn-light', () => {
       const persen = Number(tr.querySelector('.sharing-persen-input').value) || 0;
-      cetakLaporanSharingDokter(did, list, persen, periodeLabel);
+      cetakLaporanSharingDokter(did, list, persen, periodeLabel, $('#sharingAdminRad').value);
     }));
     aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => {
       const persen = Number(tr.querySelector('.sharing-persen-input').value) || 0;
-      openEditSharingModal(did, list, persen, periodeLabel);
+      openEditSharingModal(did, list, persen, periodeLabel, $('#sharingAdminRad').value);
     }));
   });
 
@@ -2503,7 +2887,7 @@ $('#formSharingLab').addEventListener('submit', (e) => {
     const did = tr.dataset.dokterid;
     tr.querySelector('.aksi-cell').appendChild(makeBtn('Cetak', 'btn-light', () => {
       const persen = Number(tr.querySelector('.sharing-persen-input').value) || 0;
-      cetakLaporanSharingDokter(did, list, persen, periodeLabel);
+      cetakLaporanSharingDokter(did, list, persen, periodeLabel, $('#sharingAdminLab').value);
     }));
   });
 
@@ -2617,7 +3001,7 @@ function renderSharingMingguanHasil(scope, dari, sampai, dokterIdFilter) {
     const d = dokterList.find(x => x.id === did);
     const persen = d && d.sharingPersen != null ? d.sharingPersen : 0;
     tr.querySelector('.aksi-cell').appendChild(makeBtn('Cetak', 'btn-light', () => {
-      cetakLaporanSharingDokter(did, list, persen, periodeLabel);
+      cetakLaporanSharingDokter(did, list, persen, periodeLabel, $('#sharingMingguanAdmin').value);
     }));
   });
 }
@@ -2979,16 +3363,20 @@ function renderKasirList() {
   });
 }
 
-/* Admin yang bertugas di kasir — namanya dipakai sebagai penerima di kwitansi,
-   menggantikan nama penanggung jawab klinik. */
-function populateKasirAdminSelect() {
-  const sel = $('#kasirAdminSelect');
+/* Admin yang bertugas — namanya dipakai sebagai penanda tangan di kwitansi
+   maupun laporan sharing, menggantikan nama penanggung jawab klinik. */
+function populateAdminSelect(selId) {
+  const sel = $(selId);
   const cur = sel.value;
   const list = DB.getAdmin().filter(a => a.aktif !== false);
   sel.innerHTML = list.length
     ? list.map(a => `<option value="${escapeHTML(a.nama)}">${escapeHTML(a.nama)}</option>`).join('')
     : '<option value="">(Belum ada admin)</option>';
   if (cur && list.some(a => a.nama === cur)) sel.value = cur;
+}
+
+function populateKasirAdminSelect() {
+  populateAdminSelect('#kasirAdminSelect');
 }
 
 /* "Data Kasir" — ringkasan statistik dari daftar yang sedang tampil (ikut berubah
@@ -3280,8 +3668,10 @@ function refreshView(view) {
   else if (view === 'rad-master-jenis') renderJenisMaster();
   else if (view === 'rad-master-kesan') renderKesanTemplateMaster();
   else if (view === 'rad-edit2') renderBacaanTemplateMaster();
-  else if (view === 'rad-data-sekunder') { renderKwitansiList(); populateTahunYearSelect(); }
-  else if (view === 'data-sekunder') { renderKwitansiListLab(); populateTahunYearSelectLab(); }
+  else if (view === 'rad-data-sekunder') { renderKwitansiList(); populateTahunYearSelect(); populateAdminSelect('#sharingAdminRad'); }
+  else if (view === 'rad-cetak-universal') renderCetakUniversal();
+  else if (view === 'rad-print-hasil') renderPrintHasilRadiologi();
+  else if (view === 'data-sekunder') { renderKwitansiListLab(); populateTahunYearSelectLab(); populateAdminSelect('#sharingAdminLab'); }
   else if (view === 'farmasi-obat') renderObatMaster();
   else if (view === 'rad-pemeriksaan-catalog') renderPemeriksaanKesan();
   else if (view === 'rad-ai') populateAiRadiologRegSelect();
@@ -3294,6 +3684,7 @@ function refreshView(view) {
   else if (view === 'keuangan-sharing') {
     if (!$('#hasilHarianTanggal').value) $('#hasilHarianTanggal').value = new Date().toISOString().slice(0, 10);
     populateDokterSelectWithAll('#sharingMingguanDokter');
+    populateAdminSelect('#sharingMingguanAdmin');
   }
 }
 

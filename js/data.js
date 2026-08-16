@@ -23,6 +23,7 @@ const DB_KEYS = {
   RAD_REG: 'rad_registrasi',
   RAD_KESAN_TEMPLATE: 'rad_kesan_template',
   RAD_BACAAN_TEMPLATE: 'rad_bacaan_template',
+  RAD_PENYAKIT_TEMPLATE: 'rad_penyakit_template',
   RAD_PAJAK_SETTING: 'rad_pajak_setting',
   ADMIN: 'lab_admin',
   FARMASI_OBAT: 'farmasi_obat',
@@ -40,7 +41,7 @@ const ROLES = {
   ceo: {
     label: 'CEO', views: [
       'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder',
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil',
       'kasir', 'admin', 'pengaturan', 'users', 'keuangan-sharing', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
@@ -48,12 +49,12 @@ const ROLES = {
   manajer: {
     label: 'Manajer', views: [
       'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder',
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil',
       'kasir', 'admin', 'pengaturan', 'keuangan-sharing', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
-  karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir'] }
+  karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir', 'rad-cetak-universal', 'rad-print-hasil'] }
 };
 
 const DEFAULT_LOGO =
@@ -451,6 +452,13 @@ const DB = {
     saveJSON(DB_KEYS.RAD_BACAAN_TEMPLATE, map);
   },
 
+  getPenyakitTemplate() {
+    return loadJSON(DB_KEYS.RAD_PENYAKIT_TEMPLATE, {});
+  },
+  savePenyakitTemplate(map) {
+    saveJSON(DB_KEYS.RAD_PENYAKIT_TEMPLATE, map);
+  },
+
   getPajakSetting() {
     return loadJSON(DB_KEYS.RAD_PAJAK_SETTING, { persen: 10 });
   },
@@ -499,6 +507,7 @@ const DB = {
     if (!hasKey(DB_KEYS.RAD_REG)) this.saveRegistrasiRadiologi([]);
     if (!hasKey(DB_KEYS.RAD_KESAN_TEMPLATE)) this.saveKesanTemplate({});
     if (!hasKey(DB_KEYS.RAD_BACAAN_TEMPLATE)) this.saveBacaanTemplate({});
+    if (!hasKey(DB_KEYS.RAD_PENYAKIT_TEMPLATE)) this.savePenyakitTemplate({});
     if (!hasKey(DB_KEYS.RAD_PAJAK_SETTING)) this.savePajakSetting({ persen: 10 });
     if (!hasKey(DB_KEYS.ADMIN)) this.saveAdmin(defaultAdmin());
     this.migrate();

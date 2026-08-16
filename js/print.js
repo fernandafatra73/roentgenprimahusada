@@ -21,10 +21,10 @@ function openPrintWindow(html, autoprint) {
   return w;
 }
 
-function printBaseStyles() {
+function printBaseStyles(pageSize, margin) {
   return `
   <style>
-    @page { size: A4; margin: 15mm; }
+    @page { size: ${pageSize || 'A4'}; margin: ${margin || '15mm'}; }
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; color: #111; margin:0; padding: 0 0 30px; }
     .sheet { max-width: 800px; margin: 0 auto; padding: 10px 6px; }
@@ -38,7 +38,7 @@ function printBaseStyles() {
     table.hasil { width:100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; }
     table.hasil th, table.hasil td { border: 1px solid #999; padding: 5px 8px; text-align:left; }
     table.hasil th { background:#eef6f4; }
-    table.hasil td.hasil-val { font-weight:700; }
+    table.hasil td.hasil-val, table.hasil .hasil-val { font-weight:700; }
     .kategori-row td { background:#0f6e5f; color:#fff; font-weight:700; }
     .flag-normal { color:#0056b3; }
     .flag-abnormal { color:#b30000; }
@@ -179,7 +179,8 @@ function previewReport(reg, ctx) {
 
 /* ============================ LAPORAN RADIOLOGI ============================ */
 
-function buildReportRadHTML(reg, ctx, showPrintBar, tanpaBacaan) {
+function buildReportRadHTML(reg, ctx, showPrintBar, tanpaBacaan, opts) {
+  opts = opts || {};
   const settings = ctx.settings;
   const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
   const dokterSp = (ctx.dokterSpList || []).find(d => d.id === reg.dokterSpId);
@@ -198,10 +199,10 @@ function buildReportRadHTML(reg, ctx, showPrintBar, tanpaBacaan) {
 
   return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
   <title>Hasil Radiologi - ${escapeHTML(reg.nama)}</title>
-  ${printBaseStyles()}
+  ${printBaseStyles(opts.pageSize, opts.margin)}
   </head><body>
   <div class="sheet">
-    ${buildKopHTML(settings)}
+    ${opts.tanpaLogo ? '' : buildKopHTML(settings)}
     <div class="judul">HASIL PEMERIKSAAN RADIOLOGI</div>
     <div class="info-grid">
       <div class="lbl">No. Registrasi</div><div>:</div><div>${escapeHTML(reg.noReg)}</div>
@@ -227,13 +228,13 @@ function buildReportRadHTML(reg, ctx, showPrintBar, tanpaBacaan) {
   </body></html>`;
 }
 
-function printReportRad(reg, ctx, tanpaBacaan) {
-  const html = buildReportRadHTML(reg, ctx, false, tanpaBacaan);
+function printReportRad(reg, ctx, tanpaBacaan, opts) {
+  const html = buildReportRadHTML(reg, ctx, false, tanpaBacaan, opts);
   openPrintWindow(html, true);
 }
 
-function previewReportRad(reg, ctx, tanpaBacaan) {
-  const html = buildReportRadHTML(reg, ctx, true, tanpaBacaan);
+function previewReportRad(reg, ctx, tanpaBacaan, opts) {
+  const html = buildReportRadHTML(reg, ctx, true, tanpaBacaan, opts);
   openPrintWindow(html, false);
 }
 
@@ -327,6 +328,97 @@ function printLabel(reg, ctx, jumlah) {
   openPrintWindow(html, false);
 }
 
+/* ============================ LABEL RADIOLOGI (RONTGEN) ============================ */
+/* Beda dengan label Lab: lembar labelnya berukuran 21 x 15 cm, terbagi jadi
+   3 kolom x 4 baris (12 label per lembar), bukan satu label per lembar A4. */
+
+const LABEL_RAD_KOLOM = 3;
+const LABEL_RAD_BARIS = 4;
+const LABEL_RAD_LEBAR_MM = 68;
+const LABEL_RAD_TINGGI_MM = 36;
+const LABEL_RAD_GAP_KOLOM_MM = 3;
+const LABEL_RAD_GAP_BARIS_MM = 2;
+const LABEL_RAD_PER_HALAMAN = LABEL_RAD_KOLOM * LABEL_RAD_BARIS;
+
+function buildLabelRadHTML(reg, ctx, selectedPositions) {
+  const settings = ctx.settings;
+  const dokter = (ctx.dokterList || []).find(d => d.id === reg.dokterId);
+
+  const satuLabel = `
+    <div class="label-rad">
+      <div class="label-rad-head">
+        <img src="${settings.logo}" alt="logo">
+        <div class="label-rad-head-teks">
+          <div class="label-rad-klinik">${escapeHTML(settings.namaKlinik)}</div>
+          <div class="label-rad-alamat clamp1">${escapeHTML(settings.alamat)}</div>
+        </div>
+      </div>
+      <div class="label-rad-garis"></div>
+      <table class="label-rad-info">
+        <tr><td>No. Reg</td><td>${escapeHTML(reg.noReg)}</td></tr>
+        <tr><td>Nama</td><td><strong>${escapeHTML(reg.nama)}</strong></td></tr>
+        <tr><td>Umur</td><td>${reg.jk === 'P' ? 'P' : 'L'} / ${escapeHTML(reg.umur)}</td></tr>
+        <tr><td>Tanggal</td><td>${formatTanggal(reg.tanggal)}</td></tr>
+        <tr><td>Pengirim</td><td class="clamp1">${escapeHTML(dokter ? dokter.nama : '-')}</td></tr>
+      </table>
+    </div>`;
+  const labelKosong = `<div class="label-rad label-rad-kosong"></div>`;
+
+  const selected = new Set(selectedPositions);
+  let cells = '';
+  for (let i = 0; i < LABEL_RAD_PER_HALAMAN; i++) cells += selected.has(i) ? satuLabel : labelKosong;
+  const halaman = `<div class="page-rad">${cells}</div>`;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Label Radiologi - ${escapeHTML(reg.nama)}</title>
+  <style>
+    @page { size: ${LABEL_RAD_KOLOM * LABEL_RAD_LEBAR_MM + (LABEL_RAD_KOLOM - 1) * LABEL_RAD_GAP_KOLOM_MM}mm ${LABEL_RAD_BARIS * LABEL_RAD_TINGGI_MM + (LABEL_RAD_BARIS - 1) * LABEL_RAD_GAP_BARIS_MM}mm; margin: 0; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; }
+    .page-rad {
+      display: grid;
+      grid-template-columns: repeat(${LABEL_RAD_KOLOM}, ${LABEL_RAD_LEBAR_MM}mm);
+      grid-template-rows: repeat(${LABEL_RAD_BARIS}, ${LABEL_RAD_TINGGI_MM}mm);
+      gap: ${LABEL_RAD_GAP_BARIS_MM}mm ${LABEL_RAD_GAP_KOLOM_MM}mm;
+      page-break-after: always;
+    }
+    .page-rad:last-child { page-break-after: auto; }
+    .label-rad {
+      width: ${LABEL_RAD_LEBAR_MM}mm;
+      height: ${LABEL_RAD_TINGGI_MM}mm;
+      border: 1px solid #0f6e5f;
+      padding: 2mm;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .label-rad-head { display: flex; align-items: center; gap: 1.5mm; }
+    .label-rad-head img { width: 6mm; height: 6mm; object-fit: contain; flex-shrink: 0; }
+    .label-rad-head-teks { min-width: 0; }
+    .label-rad-klinik { font-size: 7px; color:#0f6e5f; font-weight:700; text-transform:uppercase; letter-spacing: .2px; line-height:1.15; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .label-rad-alamat { font-size: 5.5px; color:#444; line-height:1.2; }
+    .label-rad-garis { border-top: 1px solid #0f6e5f; margin: 1mm 0; }
+    .label-rad-info { width:100%; border-collapse: collapse; font-size: 6.5px; }
+    .label-rad-info td { padding: 0.4mm 0; vertical-align: top; line-height: 1.15; }
+    .label-rad-info td:first-child { width: 13mm; color:#666; white-space: nowrap; }
+    .label-rad-info td:last-child { font-size: 7px; }
+    .label-rad-kosong { border: none; }
+    .clamp1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    .cetak-bar { text-align:center; margin: 16px 0; }
+    .cetak-bar button { padding: 8px 22px; font-size:14px; background:#0f6e5f; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+    @media print { .cetak-bar { display:none; } }
+  </style>
+  </head><body>
+  <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Label</button></div>
+  ${halaman}
+  </body></html>`;
+}
+
+function printLabelRad(reg, ctx, selectedPositions) {
+  const html = buildLabelRadHTML(reg, ctx, selectedPositions);
+  openPrintWindow(html, false);
+}
+
 /* ============================ DATA SEKUNDER: KWITANSI ============================ */
 
 function buildKwitansiRadHTML(reg, ctx) {
@@ -357,7 +449,7 @@ function buildKwitansiRadHTML(reg, ctx) {
       <div class="kwitansi-terbilang">Terbilang: ${terbilang(total)} rupiah</div>
       <div class="footer-sign">
         <div class="sign-box">
-          <div>Penerima,</div>
+          <div>Admin,</div>
           <div class="sign-space"></div>
           <div><strong>${escapeHTML(ctx.adminNama || settings.penanggungJawab)}</strong></div>
         </div>
@@ -401,7 +493,7 @@ function buildKwitansiLabHTML(reg, ctx) {
       <div class="kwitansi-terbilang">Terbilang: ${terbilang(total)} rupiah</div>
       <div class="footer-sign">
         <div class="sign-box">
-          <div>Penerima,</div>
+          <div>Admin,</div>
           <div class="sign-space"></div>
           <div><strong>${escapeHTML(ctx.adminNama || settings.penanggungJawab)}</strong></div>
         </div>
@@ -455,7 +547,7 @@ function printLaporanContainer(containerSelector, judul, periodeLabel) {
 /* Satu lembar per dokter pengirim: daftar pasien yang dirujuk beserta nominal
    sharing masing-masing, ditandatangani Admin. Dipakai oleh Sharing Dokter
    Laboratorium, Radiologi, maupun Keuangan (gabungan) — formatnya sama. */
-function buildLaporanSharingDokterHTML(dokterNama, rows, totalSharing, periodeLabel) {
+function buildLaporanSharingDokterHTML(dokterNama, rows, totalSharing, periodeLabel, adminNama) {
   const settings = DB.getSettings();
   const rowsHTML = rows.map((r, i) => `
     <tr>
@@ -489,7 +581,7 @@ function buildLaporanSharingDokterHTML(dokterNama, rows, totalSharing, periodeLa
       <div class="sign-box">
         <div>Admin,</div>
         <div class="sign-space"></div>
-        <div>&nbsp;</div>
+        <div><strong>${escapeHTML(adminNama || settings.penanggungJawab)}</strong></div>
       </div>
     </div>
     <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>
@@ -497,7 +589,7 @@ function buildLaporanSharingDokterHTML(dokterNama, rows, totalSharing, periodeLa
   </body></html>`;
 }
 
-function printLaporanSharingDokter(dokterNama, rows, totalSharing, periodeLabel) {
-  const html = buildLaporanSharingDokterHTML(dokterNama, rows, totalSharing, periodeLabel);
+function printLaporanSharingDokter(dokterNama, rows, totalSharing, periodeLabel, adminNama) {
+  const html = buildLaporanSharingDokterHTML(dokterNama, rows, totalSharing, periodeLabel, adminNama);
   openPrintWindow(html, true);
 }

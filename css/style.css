@@ -142,6 +142,7 @@ body {
 .obat-stok-menipis { color: #b30000; font-weight: 700; }
 .center { text-align: center; }
 .aksi-cell { white-space: nowrap; }
+.print-hasil-select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; margin-right: 6px; background: #fff; }
 
 .empty-state { padding: 30px; text-align: center; color: var(--muted); }
 
@@ -211,7 +212,7 @@ body {
 .accordion-body label, #kesanTabPanel label, #bacaanTabPanel label {
   display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 4px;
 }
-.accordion-body textarea, #kesanTabPanel > textarea, #bacaanTabPanel > textarea {
+.accordion-body textarea, #kesanTabPanel > textarea, #bacaanTabPanel > textarea, .kesan-linked-input {
   width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
   font-size: 13px; font-family: inherit; resize: vertical; margin-bottom: 10px;
 }
@@ -247,6 +248,8 @@ body {
 .kesan-panel-head h3 { margin: 0; color: var(--primary-dark); font-size: 16px; }
 .kesan-panel-head .accordion-badge { font-size: 13px; }
 
+.kesan-linked-section { margin-top: 22px; padding-top: 18px; border-top: 2px dashed var(--border); }
+
 .kesan-entry-list { display: flex; flex-direction: column; gap: 8px; }
 .kesan-entry { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: #fafcfb; cursor: pointer; }
 .kesan-entry:hover { border-color: var(--primary); background: #f1f8f6; }
@@ -279,6 +282,7 @@ body {
   font-size: 13px; font-family: inherit; margin-bottom: 8px; background: #fff;
 }
 .rad-exam-card .aksi-cell { text-align: right; }
+.rad-hasil-block-kesan { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
 
 /* -------------------------------- Hasil pemeriksaan ---------------------------- */
 
@@ -325,6 +329,14 @@ body {
 .label-reg-info { background: #f4f7f6; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
 .modal-label-count { font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .modal-label-count input { width: 60px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; }
+.label-rad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.label-rad-slot {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid var(--border); border-radius: 6px; padding: 10px 4px;
+  font-size: 12.5px; cursor: pointer; background: #fafcfb; user-select: none;
+}
+.label-rad-slot input { margin: 0; }
+.label-rad-slot.selected { border-color: var(--primary); background: #eef6f4; color: var(--primary-dark); font-weight: 600; }
 
 /* -------------------------------- Toast ----------------------------------------- */
 
