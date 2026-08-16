@@ -527,6 +527,21 @@ function openHasil(regId) {
       tr.querySelector('.aksi-cell').appendChild(makeBtn('Hapus', 'btn-danger', () => hapusHasilTest(regId, pk.id, t.id)));
       tbody.appendChild(tr);
     });
+
+    const tambahTr = document.createElement('tr');
+    tambahTr.className = 'hasil-tambah-row';
+    tambahTr.innerHTML = `
+      <td colspan="4"><input type="text" class="tambah-item-input" placeholder="Nama pemeriksaan baru..."></td>
+      <td class="aksi-cell"></td>
+    `;
+    const tambahInput = tambahTr.querySelector('.tambah-item-input');
+    tambahTr.querySelector('.aksi-cell').appendChild(makeBtn('+ Tambah', 'btn-secondary', () => {
+      const nama = tambahInput.value.trim();
+      if (!nama) { showToast('Nama pemeriksaan tidak boleh kosong.'); return; }
+      tambahItemPemeriksaanLab(regId, pk.id, nama);
+    }));
+    tbody.appendChild(tambahTr);
+
     wrap.appendChild(table);
   });
 
@@ -544,6 +559,22 @@ async function hapusHasilTest(regId, paketId, testId) {
   if (reg.hasil) delete reg.hasil[testId];
   DB.saveRegistrasi(list);
   showToast('Pemeriksaan dihapus dari hasil pasien.');
+  openHasil(regId);
+}
+
+function tambahItemPemeriksaanLab(regId, paketId, nama) {
+  const list = DB.getRegistrasi();
+  const reg = list.find(r => r.id === regId);
+  if (!reg) return;
+  const pk = (reg.paketSnapshot || []).find(p => p.id === paketId);
+  if (!pk) return;
+  const test = { id: uid('tst'), nama, satuan: '', nilaiRujukan: '' };
+  pk.tests = pk.tests || [];
+  pk.tests.push(test);
+  reg.hasil = reg.hasil || {};
+  reg.hasil[test.id] = { hasil: '', satuan: '', nilaiRujukan: '' };
+  DB.saveRegistrasi(list);
+  showToast(`"${nama}" ditambahkan ke ${pk.nama}.`);
   openHasil(regId);
 }
 

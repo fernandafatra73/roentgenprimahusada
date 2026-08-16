@@ -365,6 +365,8 @@ body {
 .hasil-edit-tbl input { width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 6px; font-size: 13px; }
 .hasil-input { font-weight: 700; }
 .hasil-cell { display: flex; align-items: center; gap: 1px; }
+.hasil-tambah-row { background: #fafcfb; }
+.hasil-tambah-row .tambah-item-input { font-style: italic; }
 .hasil-cell .hasil-input, .hasil-cell .hasil2-input { flex: 0 0 auto; min-width: 3ch; max-width: 100%; }
 .hasil-flag { color: #c0392b; font-weight: 700; font-size: 15px; }
 .flag-normal-input { color: #0056b3 !important; }
