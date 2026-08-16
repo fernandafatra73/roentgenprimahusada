@@ -384,6 +384,7 @@
     <div class="datasek-panel active" id="datasekKwitansiLab">
       <div class="toolbar">
         <input type="text" id="cariKwitansiLab" placeholder="Cari nama / No. RM / No. Registrasi...">
+        <select id="kwitansiAdminLab" title="Admin yang bertugas — namanya akan tampil di kwitansi"></select>
       </div>
       <div class="table-wrap">
         <table class="tbl">
@@ -502,7 +503,10 @@
   <section id="view-rad-form" class="view">
     <div class="view-header">
       <h2 id="formTitleRad">Pendaftaran Radiologi Baru</h2>
-      <button class="btn btn-light" data-back="rad-daftar">&larr; Kembali</button>
+      <div class="view-header-actions">
+        <button type="submit" form="formDaftarRad" class="btn btn-primary">Simpan</button>
+        <button class="btn btn-light" data-back="rad-daftar">&larr; Kembali</button>
+      </div>
     </div>
 
     <form id="formDaftarRad" class="card form-grid">
@@ -620,10 +624,8 @@
       <h2>Edit Radiologi</h2>
       <button class="btn btn-light" data-back="rad-daftar">&larr; Kembali</button>
     </div>
-    <div class="kesan-layout">
-      <div id="bacaanTemplateWrap" class="kesan-sidebar"></div>
-      <div class="card" id="bacaanTabPanel"></div>
-    </div>
+    <div id="bacaanTemplateWrap"></div>
+    <div class="card" id="bacaanTabPanel"></div>
   </section>
 
   <!-- ======================= VIEW: MASTER JENIS & TARIF RADIOLOGI ======================= -->
@@ -678,6 +680,7 @@
     <div class="datasek-panel active" id="datasekKwitansi">
       <div class="toolbar">
         <input type="text" id="cariKwitansi" placeholder="Cari nama / No. RM / No. Registrasi...">
+        <select id="kwitansiAdminRad" title="Admin yang bertugas — namanya akan tampil di kwitansi"></select>
       </div>
       <div class="table-wrap">
         <table class="tbl">
@@ -1117,6 +1120,18 @@
       <button class="btn btn-primary" id="labelOk">Cetak Label</button>
       <button class="btn btn-light" id="labelOkAmplop" style="display:none;">Cetak Amplop</button>
       <button class="btn btn-primary" id="labelOkLabel" style="display:none;">Cetak Label</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= MODAL: PILIH PASIEN UNTUK KESAN ======================= -->
+<div class="modal-overlay" id="modalPilihPasienKesan">
+  <div class="modal-box modal-box-wide">
+    <p>Terapkan Kesan ini ke Hasil pasien mana?</p>
+    <input type="text" id="pilihPasienKesanCari" class="modal-input" placeholder="Cari nama / No. RM / No. Registrasi...">
+    <div id="pilihPasienKesanList" class="pilih-pasien-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-light" id="pilihPasienKesanCancel">Batal</button>
     </div>
   </div>
 </div>

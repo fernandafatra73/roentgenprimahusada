@@ -24,6 +24,7 @@ const DB_KEYS = {
   RAD_KESAN_TEMPLATE: 'rad_kesan_template',
   RAD_BACAAN_TEMPLATE: 'rad_bacaan_template',
   RAD_PENYAKIT_TEMPLATE: 'rad_penyakit_template',
+  RAD_EDIT_TABS: 'rad_edit_tabs',
   RAD_PAJAK_SETTING: 'rad_pajak_setting',
   ADMIN: 'lab_admin',
   FARMASI_OBAT: 'farmasi_obat',
@@ -459,6 +460,13 @@ const DB = {
     saveJSON(DB_KEYS.RAD_PENYAKIT_TEMPLATE, map);
   },
 
+  getEditRadTabs() {
+    return loadJSON(DB_KEYS.RAD_EDIT_TABS, []);
+  },
+  saveEditRadTabs(list) {
+    saveJSON(DB_KEYS.RAD_EDIT_TABS, list);
+  },
+
   getPajakSetting() {
     return loadJSON(DB_KEYS.RAD_PAJAK_SETTING, { persen: 10 });
   },
@@ -508,6 +516,22 @@ const DB = {
     if (!hasKey(DB_KEYS.RAD_KESAN_TEMPLATE)) this.saveKesanTemplate({});
     if (!hasKey(DB_KEYS.RAD_BACAAN_TEMPLATE)) this.saveBacaanTemplate({});
     if (!hasKey(DB_KEYS.RAD_PENYAKIT_TEMPLATE)) this.savePenyakitTemplate({});
+    if (!hasKey(DB_KEYS.RAD_EDIT_TABS)) {
+      const jenisList = this.getJenisRadiologi();
+      const namaDefault = ['Thorax', 'BNO', 'Lumbo-Sacral AP/Lat'];
+      let jenisBerubah = false;
+      const tabIds = namaDefault.map(nama => {
+        let j = jenisList.find(x => x.nama.toLowerCase() === nama.toLowerCase());
+        if (!j) {
+          j = { id: uid('rj'), nama, modalitas: 'X-Ray', harga: 0, aktif: true };
+          jenisList.push(j);
+          jenisBerubah = true;
+        }
+        return j.id;
+      });
+      if (jenisBerubah) this.saveJenisRadiologi(jenisList);
+      this.saveEditRadTabs(tabIds);
+    }
     if (!hasKey(DB_KEYS.RAD_PAJAK_SETTING)) this.savePajakSetting({ persen: 10 });
     if (!hasKey(DB_KEYS.ADMIN)) this.saveAdmin(defaultAdmin());
     this.migrate();

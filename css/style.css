@@ -96,6 +96,7 @@ body {
   gap: 10px;
 }
 .view-header h2 { margin: 0; font-size: 20px; color: var(--primary-dark); }
+.view-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .card {
   background: var(--card-bg);
@@ -237,6 +238,8 @@ body {
 }
 
 .kesan-tab-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.rad-edit-tab-row { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.rad-edit-tab-row .kesan-tab { width: auto; }
 .kesan-tab {
   width: 100%; text-align: left; background: #fff; border: 1px solid var(--border); border-radius: 6px;
   padding: 8px 12px; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer;
@@ -327,6 +330,14 @@ body {
 .modal-input { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13.5px; margin-bottom: 4px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .label-reg-info { background: #f4f7f6; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
+.pilih-pasien-list { max-height: 320px; overflow-y: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.pilih-pasien-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px;
+  font-size: 13px; cursor: pointer; background: #fafcfb; text-align: left;
+}
+.pilih-pasien-item:hover { background: #eef6f4; border-color: var(--primary); }
+.pilih-pasien-item .small-text { color: var(--muted); }
 .modal-label-count { font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .modal-label-count input { width: 60px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; }
 .label-rad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
