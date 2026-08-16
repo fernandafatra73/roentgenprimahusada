@@ -1977,8 +1977,22 @@ $('#bacaanTabPanel').addEventListener('click', (e) => {
       const entry = (templates[activeBacaanTabId] || []).find(x => x.id === entryId);
       if (entry) entry.kesan = teks;
       DB.saveKesanTemplate(templates);
+      /* Kalau Kesan ini sudah terhubung ke pasien, perubahan teksnya ikut
+         disimpan ke Hasil pasien itu juga — bukan cuma ke templatenya. */
+      let pesanToast = 'Kesan diperbarui.';
+      if (entry && entry.patientRegId) {
+        const regs = DB.getRegistrasiRadiologi();
+        const reg = regs.find(r => r.id === entry.patientRegId);
+        if (reg) {
+          reg.hasil = reg.hasil || {};
+          if (!reg.hasil[activeBacaanTabId]) reg.hasil[activeBacaanTabId] = { hasilBacaan: '', kesan: '' };
+          reg.hasil[activeBacaanTabId].kesan = teks;
+          DB.saveRegistrasiRadiologi(regs);
+          pesanToast = `Kesan diperbarui dan otomatis tersimpan ke Hasil "${entry.patientNama}".`;
+        }
+      }
       editingKesanEntryId = null;
-      showToast('Kesan diperbarui.');
+      showToast(pesanToast);
       renderBacaanTabPanel();
       return;
     }
@@ -2235,7 +2249,9 @@ function kesanEntryHTML(jenisId, entry) {
       <div class="kesan-entry-meta">
         <span class="kesan-entry-info">
           ${new Date(entry.createdAt).toLocaleString('id-ID')}
-          ${entry.patientNama ? `&bull; <button type="button" class="kesan-entry-patient-link" data-regid="${entry.patientRegId}">&#128100; ${escapeHTML(entry.patientNama)} (RM ${escapeHTML(entry.patientNoRM || '-')})</button>` : ''}
+          &bull; ${entry.patientNama
+            ? `<button type="button" class="kesan-entry-patient-link" data-regid="${entry.patientRegId}">&#128100; ${escapeHTML(entry.patientNama)} (RM ${escapeHTML(entry.patientNoRM || '-')})</button>`
+            : `<span class="small-text">&#128100; Nama Pasien: (belum terhubung)</span>`}
         </span>
         <div class="accordion-actions">
           <button type="button" class="btn btn-sm btn-light kesan-entry-copy-btn">Copy</button>

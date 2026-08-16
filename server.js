@@ -9,17 +9,29 @@
    sama sekali, hanya tempat penyimpanannya.
    ========================================================================== */
 
-try { process.loadEnvFile(); } catch (e) { /* .env opsional — abaikan kalau tidak ada */ }
-
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 const Anthropic = require('@anthropic-ai/sdk');
 
+/* Saat dijalankan sebagai .exe hasil "node --experimental-sea-config" (Single
+   Executable Application), __dirname mengarah ke dalam blob, bukan folder
+   nyata — jadi file data.sqlite/media/.env/index.html dsb harus dicari relatif
+   ke lokasi file .exe itu sendiri (process.execPath), bukan __dirname. Saat
+   dijalankan biasa lewat "node server.js", BASE_DIR tetap __dirname seperti
+   sebelumnya — tidak ada perubahan perilaku untuk pengembangan sehari-hari. */
+let BASE_DIR = __dirname;
+try {
+  const sea = require('node:sea');
+  if (sea.isSea && sea.isSea()) BASE_DIR = path.dirname(process.execPath);
+} catch (e) { /* node:sea tidak tersedia — tetap pakai __dirname */ }
+
+try { process.loadEnvFile(path.join(BASE_DIR, '.env')); } catch (e) { /* .env opsional — abaikan kalau tidak ada */ }
+
 const PORT = process.env.PORT || 8791;
-const DB_FILE = path.join(__dirname, 'data.sqlite');
-const MEDIA_DIR = path.join(__dirname, 'media');
+const DB_FILE = path.join(BASE_DIR, 'data.sqlite');
+const MEDIA_DIR = path.join(BASE_DIR, 'media');
 if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR);
 
 const db = new DatabaseSync(DB_FILE);
@@ -174,7 +186,7 @@ app.delete('/api/musik-upload/:filename', (req, res) => {
   });
 });
 
-app.use(express.static(__dirname));
+app.use(express.static(BASE_DIR));
 
 app.listen(PORT, () => {
   console.log(`Server berjalan di http://localhost:${PORT}`);
