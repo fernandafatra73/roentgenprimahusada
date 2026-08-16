@@ -67,6 +67,7 @@
       <div class="brand-sub">Sistem Informasi Laboratorium &amp; Radiologi</div>
     </div>
     <div class="topbar-brand-radnav">
+      <button type="button" class="navbtn" data-view="dashboard">Dashboard</button>
       <div class="nav-dropdown">
         <button type="button" class="navbtn nav-dropdown-toggle">Radiologi &#9662;</button>
         <div class="nav-dropdown-menu">
@@ -103,6 +104,8 @@
           <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
           <button class="navbtn" data-view="kasir">Kasir</button>
           <button class="navbtn" data-view="admin">Admin</button>
+          <button class="navbtn" data-view="karyawan">Karyawan</button>
+          <button class="navbtn" data-view="running-text">Running Text</button>
           <button class="navbtn" data-view="pengaturan">Pengaturan</button>
           <button class="navbtn" data-view="users">Pengguna</button>
         </div>
@@ -111,6 +114,7 @@
         <button type="button" class="navbtn nav-dropdown-toggle">Keuangan &#9662;</button>
         <div class="nav-dropdown-menu">
           <button class="navbtn" data-view="keuangan-sharing">Sharing</button>
+          <button class="navbtn" data-view="gaji-karyawan">Gaji Karyawan</button>
         </div>
       </div>
     </div>
@@ -127,6 +131,39 @@
 </header>
 
 <main class="content">
+
+  <!-- ======================= VIEW: DASHBOARD ======================= -->
+  <section id="view-dashboard" class="view">
+    <div class="view-header">
+      <h2>Dashboard</h2>
+    </div>
+    <div class="datasek-summary">
+      <div class="datasek-stat">
+        <div class="stat-label">Pasien Hari Ini</div>
+        <div class="stat-value" id="dashboardPasienHarian">0</div>
+      </div>
+      <div class="datasek-stat">
+        <div class="stat-label">Pasien Minggu Ini</div>
+        <div class="stat-value" id="dashboardPasienMingguan">0</div>
+      </div>
+      <div class="datasek-stat">
+        <div class="stat-label">Total Pendapatan</div>
+        <div class="stat-value" id="dashboardTotalPendapatan">Rp 0</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="view-header" style="margin-bottom:14px;">
+        <h3 style="margin:0; color:var(--primary-dark); font-size:16px;">Grafik Dokter Pengirim</h3>
+        <div class="toolbar" id="dashboardChartTabs">
+          <button type="button" class="btn btn-light datasek-tab" data-periode="hari">Hari Ini</button>
+          <button type="button" class="btn btn-light datasek-tab" data-periode="minggu">Minggu Ini</button>
+          <button type="button" class="btn btn-light datasek-tab active" data-periode="bulan">Bulan Ini</button>
+          <button type="button" class="btn btn-light datasek-tab" data-periode="semua">Semua</button>
+        </div>
+      </div>
+      <div class="chart-bar-list" id="dashboardDokterChart"></div>
+    </div>
+  </section>
 
   <!-- ======================= VIEW: DAFTAR / REGISTRASI ======================= -->
   <section id="view-daftar" class="view active">
@@ -152,7 +189,6 @@
             <th>JK/Umur</th>
             <th>Dokter Pengirim</th>
             <th>Analis</th>
-            <th>Paket</th>
             <th>Total</th>
             <th>Status</th>
             <th>Aksi</th>
@@ -793,6 +829,42 @@
     </div>
   </section>
 
+  <!-- ======================= VIEW: GAJI KARYAWAN ======================= -->
+  <section id="view-gaji-karyawan" class="view">
+    <div class="view-header">
+      <h2>Gaji Karyawan</h2>
+    </div>
+    <form id="formGaji" class="card form-grid">
+      <input type="hidden" id="fGajiId">
+      <div class="form-row"><label>Karyawan</label><select id="fGajiKaryawan"></select></div>
+      <div class="form-row"><label>Periode</label><input type="month" id="fGajiPeriode" required></div>
+      <div class="form-row"><label>Gaji Pokok</label><input type="number" id="fGajiPokok" min="0" step="1000" value="0"></div>
+      <div class="form-row"><label>Tunjangan</label><input type="number" id="fGajiTunjangan" min="0" step="1000" value="0"></div>
+      <div class="form-row"><label>Potongan</label><input type="number" id="fGajiPotongan" min="0" step="1000" value="0"></div>
+      <div class="form-row"><label>Catatan</label><input type="text" id="fGajiCatatan" placeholder="opsional"></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="btnSimpanGaji">Tambah</button>
+        <button type="button" class="btn btn-light" id="btnBatalEditGaji" style="display:none;">Batal Edit</button>
+      </div>
+    </form>
+
+    <div class="toolbar">
+      <input type="text" id="cariGaji" placeholder="Cari nama karyawan...">
+      <select id="gajiAdminSelect" title="Admin yang menyerahkan gaji — namanya akan tampil di slip gaji"></select>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Karyawan</th><th>Periode</th><th>Gaji Pokok</th><th>Tunjangan</th><th>Potongan</th><th>Total</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblGajiBody"></tbody>
+      </table>
+      <div id="emptyGaji" class="empty-state" style="display:none">Belum ada data gaji.</div>
+    </div>
+  </section>
+
   <!-- ======================= VIEW: PEMERIKSAAN (PEMERIKSAAN / PENYAKIT / KESAN) ======================= -->
   <section id="view-rad-pemeriksaan-catalog" class="view">
     <div class="view-header">
@@ -1012,6 +1084,53 @@
     </div>
   </section>
 
+  <!-- ======================= VIEW: KARYAWAN ======================= -->
+  <section id="view-karyawan" class="view">
+    <div class="view-header">
+      <h2>Karyawan</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newKaryawanNama" placeholder="Nama karyawan...">
+      <input type="text" id="newKaryawanHp" placeholder="No. HP...">
+      <select id="newKaryawanBank">
+        <option value="">-- Bank --</option>
+        <option value="BCA">BCA</option>
+        <option value="BRI">BRI</option>
+        <option value="Mandiri">Mandiri</option>
+      </select>
+      <input type="text" id="newKaryawanRekening" placeholder="No. Rekening...">
+      <button class="btn btn-primary" id="btnAddKaryawan">Tambah</button>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="cariKaryawan" placeholder="Cari nama karyawan...">
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama</th><th>No. HP</th><th>Bank</th><th>No. Rekening</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblKaryawanBody"></tbody>
+      </table>
+      <div id="emptyKaryawan" class="empty-state" style="display:none">Tidak ada data.</div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: RUNNING TEXT ======================= -->
+  <section id="view-running-text" class="view">
+    <div class="view-header">
+      <h2>Running Text</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newRunningTextTeks" placeholder="Kata penyemangat...">
+      <button class="btn btn-primary" id="btnAddRunningText">Tambah</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Kata Penyemangat</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblRunningTextBody"></tbody>
+      </table>
+      <div id="emptyRunningText" class="empty-state" style="display:none">Belum ada kata penyemangat. Teks berjalan di footer hanya menampilkan info klinik.</div>
+    </div>
+  </section>
+
   <!-- ======================= VIEW: PENGATURAN ======================= -->
   <section id="view-pengaturan" class="view">
     <div class="view-header">
@@ -1078,6 +1197,11 @@
   </section>
 
 </main>
+
+<footer class="footer-marquee">
+  <div class="footer-marquee-track" id="footerMarqueeTrack"></div>
+</footer>
+
 </div>
 
 

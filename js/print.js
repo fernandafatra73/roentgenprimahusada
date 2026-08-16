@@ -419,6 +419,62 @@ function printLabelRad(reg, ctx, selectedPositions) {
   openPrintWindow(html, false);
 }
 
+/* ============================ SLIP GAJI KARYAWAN ============================ */
+
+function buildSlipGajiHTML(gaji, karyawan, settings, adminNama) {
+  const gajiPokok = Number(gaji.gajiPokok) || 0;
+  const tunjangan = Number(gaji.tunjangan) || 0;
+  const potongan = Number(gaji.potongan) || 0;
+  const total = gajiPokok + tunjangan - potongan;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Slip Gaji - ${escapeHTML(karyawan ? karyawan.nama : '-')}</title>
+  ${printBaseStyles()}
+  <style>
+    table.hasil tfoot td { border: 1px solid #999; padding: 5px 8px; }
+    .rp-value { color: #0b3d91; font-weight: 700; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">SLIP GAJI KARYAWAN</div>
+    <div class="info-grid">
+      <div class="lbl">Nama Karyawan</div><div>:</div><div>${escapeHTML(karyawan ? karyawan.nama : '-')}</div>
+      <div class="lbl">No. HP</div><div>:</div><div>${escapeHTML(karyawan ? karyawan.hp : '-') || '-'}</div>
+      <div class="lbl">Periode</div><div>:</div><div>${escapeHTML(formatPeriode(gaji.periode))}</div>
+    </div>
+    <table class="hasil">
+      <thead><tr><th>Keterangan</th><th>Jumlah</th></tr></thead>
+      <tbody>
+        <tr><td>Gaji Pokok</td><td class="rp-value">${formatRupiah(gajiPokok)}</td></tr>
+        <tr><td>Tunjangan</td><td class="rp-value">${formatRupiah(tunjangan)}</td></tr>
+        <tr><td>Potongan</td><td class="rp-value">- ${formatRupiah(potongan)}</td></tr>
+      </tbody>
+      <tfoot><tr><td style="font-weight:700;">Total Diterima</td><td class="rp-value">${formatRupiah(total)}</td></tr></tfoot>
+    </table>
+    ${gaji.catatan ? `<div style="font-size:13px; margin: -6px 0 14px;"><strong>Catatan</strong> : ${escapeHTML(gaji.catatan)}</div>` : ''}
+    <div class="footer-sign" style="justify-content: space-between;">
+      <div class="sign-box">
+        <div>Diterima oleh,</div>
+        <div class="sign-space"></div>
+        <div><strong>${escapeHTML(karyawan ? karyawan.nama : '-')}</strong></div>
+      </div>
+      <div class="sign-box">
+        <div>Diserahkan oleh,</div>
+        <div class="sign-space"></div>
+        <div><strong>${escapeHTML(adminNama || settings.penanggungJawab)}</strong></div>
+      </div>
+    </div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Slip Gaji</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printSlipGaji(gaji, karyawan, settings, adminNama) {
+  const html = buildSlipGajiHTML(gaji, karyawan, settings, adminNama);
+  openPrintWindow(html, true);
+}
+
 /* ============================ DATA SEKUNDER: KWITANSI ============================ */
 
 function buildKwitansiRadHTML(reg, ctx) {

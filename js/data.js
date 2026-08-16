@@ -27,6 +27,9 @@ const DB_KEYS = {
   RAD_EDIT_TABS: 'rad_edit_tabs',
   RAD_PAJAK_SETTING: 'rad_pajak_setting',
   ADMIN: 'lab_admin',
+  KARYAWAN: 'lab_karyawan',
+  GAJI_KARYAWAN: 'gaji_karyawan',
+  RUNNING_TEXT: 'running_text',
   FARMASI_OBAT: 'farmasi_obat',
   RAD_PEMERIKSAAN_KESAN: 'rad_pemeriksaan_kesan'
 };
@@ -41,21 +44,21 @@ const SESSION_KEY = 'lab_session_uid';
 const ROLES = {
   ceo: {
     label: 'CEO', views: [
-      'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
+      'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
       'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil',
-      'kasir', 'admin', 'pengaturan', 'users', 'keuangan-sharing', 'farmasi-obat',
+      'kasir', 'admin', 'karyawan', 'running-text', 'pengaturan', 'users', 'keuangan-sharing', 'gaji-karyawan', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
   manajer: {
     label: 'Manajer', views: [
-      'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
+      'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
       'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil',
-      'kasir', 'admin', 'pengaturan', 'keuangan-sharing', 'farmasi-obat',
+      'kasir', 'admin', 'karyawan', 'running-text', 'pengaturan', 'keuangan-sharing', 'gaji-karyawan', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
-  karyawan: { label: 'Karyawan', views: ['daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir', 'rad-cetak-universal', 'rad-print-hasil'] }
+  karyawan: { label: 'Karyawan', views: ['dashboard', 'daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir', 'rad-cetak-universal', 'rad-print-hasil'] }
 };
 
 const DEFAULT_LOGO =
@@ -120,7 +123,7 @@ function defaultSettings() {
 
 function defaultUsers() {
   return [
-    { id: uid('usr'), username: 'ceo', password: 'ceo123', nama: 'Pimpinan Laboratorium', role: 'ceo', aktif: true },
+    { id: uid('usr'), username: 'ceo', password: 'ceo123', nama: 'By F. Fatria Fatra', role: 'ceo', aktif: true },
     { id: uid('usr'), username: 'manajer', password: 'manajer123', nama: 'Manajer Laboratorium', role: 'manajer', aktif: true },
     { id: uid('usr'), username: 'karyawan', password: 'karyawan123', nama: 'Staf Laboratorium', role: 'karyawan', aktif: true }
   ];
@@ -432,6 +435,27 @@ const DB = {
     saveJSON(DB_KEYS.ADMIN, list);
   },
 
+  getKaryawan() {
+    return loadJSON(DB_KEYS.KARYAWAN, []);
+  },
+  saveKaryawan(list) {
+    saveJSON(DB_KEYS.KARYAWAN, list);
+  },
+
+  getGajiKaryawan() {
+    return loadJSON(DB_KEYS.GAJI_KARYAWAN, []);
+  },
+  saveGajiKaryawan(list) {
+    saveJSON(DB_KEYS.GAJI_KARYAWAN, list);
+  },
+
+  getRunningText() {
+    return loadJSON(DB_KEYS.RUNNING_TEXT, []);
+  },
+  saveRunningText(list) {
+    saveJSON(DB_KEYS.RUNNING_TEXT, list);
+  },
+
   getRegistrasiRadiologi() {
     return loadJSON(DB_KEYS.RAD_REG, []);
   },
@@ -534,6 +558,9 @@ const DB = {
     }
     if (!hasKey(DB_KEYS.RAD_PAJAK_SETTING)) this.savePajakSetting({ persen: 10 });
     if (!hasKey(DB_KEYS.ADMIN)) this.saveAdmin(defaultAdmin());
+    if (!hasKey(DB_KEYS.KARYAWAN)) this.saveKaryawan([]);
+    if (!hasKey(DB_KEYS.GAJI_KARYAWAN)) this.saveGajiKaryawan([]);
+    if (!hasKey(DB_KEYS.RUNNING_TEXT)) this.saveRunningText([]);
     this.migrate();
   },
 
@@ -571,6 +598,13 @@ function formatTanggal(iso) {
   const d = new Date(iso);
   if (isNaN(d)) return iso;
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function formatPeriode(monthStr) {
+  if (!monthStr) return '-';
+  const [y, m] = monthStr.split('-').map(Number);
+  if (!y || !m) return monthStr;
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
 function hitungUmur(tglLahir) {

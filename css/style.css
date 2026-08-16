@@ -43,6 +43,32 @@ body {
 }
 
 .topnav { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* ------------------------------ Footer marquee ---------------------------- */
+
+.footer-marquee {
+  background: #2d7fbf;
+  color: #fff;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 8px 0;
+  font-size: 12.5px;
+  letter-spacing: .2px;
+}
+.footer-marquee-track {
+  display: inline-block;
+  padding-left: 100%;
+  animation: footer-marquee-scroll 75s linear infinite;
+}
+.footer-marquee-track span { padding: 0 40px; }
+@keyframes footer-marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .footer-marquee-track { animation: none; padding-left: 0; }
+  .footer-marquee { white-space: normal; text-align: center; }
+}
 .navbtn {
   background: transparent;
   border: 1px solid rgba(255,255,255,.4);
@@ -154,6 +180,9 @@ body {
 
 .inline-edit { width: 100%; border: 1px solid transparent; background: transparent; padding: 5px; border-radius: 4px; font-size: 13px; }
 .inline-edit:hover, .inline-edit:focus { border-color: var(--border); background: #fff; }
+.inline-edit:read-only { color: var(--muted); cursor: default; }
+.inline-edit:read-only:hover, .inline-edit:read-only:focus { background: transparent; border-color: transparent; }
+.inline-edit:disabled { color: var(--muted); cursor: default; background: transparent; border-color: transparent; opacity: 1; -webkit-appearance: none; appearance: none; }
 
 /* -------------------------------- Badges ------------------------------------ */
 
@@ -228,6 +257,14 @@ body {
 .datasek-stat { background: #eef6f4; border-radius: 8px; padding: 14px 16px; }
 .datasek-stat .stat-label { font-size: 11.5px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
 .datasek-stat .stat-value { font-size: 19px; font-weight: 700; color: var(--primary-dark); }
+
+.chart-bar-list { display: flex; flex-direction: column; gap: 10px; }
+.chart-bar-row { display: grid; grid-template-columns: 160px 1fr 46px; align-items: center; gap: 10px; font-size: 13px; }
+.chart-bar-label { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chart-bar-track { background: #eef2f1; border-radius: 7px; height: 14px; overflow: hidden; }
+.chart-bar-fill { background: var(--primary); height: 100%; border-radius: 7px; transition: opacity .15s; }
+.chart-bar-row:hover .chart-bar-fill { opacity: .8; }
+.chart-bar-value { text-align: right; font-weight: 700; color: var(--primary-dark); font-size: 12.5px; }
 
 .kesan-layout { display: flex; align-items: flex-start; gap: 16px; }
 .kesan-sidebar { flex: 0 0 260px; min-width: 200px; }
