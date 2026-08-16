@@ -1081,7 +1081,7 @@ function renderDaftarRad() {
     `;
     const aksiCell = tr.querySelector('.aksi-cell');
     aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openFormRad(r.id)));
-    aksiCell.appendChild(makeBtn('Edit Rad', 'btn-danger', () => openRadEdit2(r.id)));
+    aksiCell.appendChild(makeBtn('Edit Radiologi', 'btn-light', () => openEditRadiologi()));
     aksiCell.appendChild(makeBtn('Hasil', 'btn-secondary', () => openHasilRad(r.id)));
     aksiCell.appendChild(makeBtn('Preview', 'btn-light', () => previewReportRad(r, printCtxRad())));
     aksiCell.appendChild(makeBtn('Print Lengkap', 'btn-primary', () => printReportRad(r, printCtxRad())));
@@ -1324,14 +1324,21 @@ function openHasilRad(regId) {
   const wrap = $('#hasilRadWrap');
   wrap.innerHTML = '';
   const kesanTemplateMap = DB.getKesanTemplate();
+  const bacaanTemplateMap = DB.getBacaanTemplate();
   (reg.jenisSnapshot || []).forEach(j => {
     const rec = (reg.hasil || {})[j.id] || { hasilBacaan: '', kesan: '' };
     const kesanOptions = (kesanTemplateMap[j.id] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
+    const bacaanOptions = (bacaanTemplateMap[j.id] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
     const card = document.createElement('div');
     card.className = 'rad-exam-card';
     card.innerHTML = `
       <h4>${escapeHTML(j.nama)} <span class="small-text">(${escapeHTML(j.modalitas)})</span></h4>
       <label>Hasil Bacaan / Temuan</label>
+      ${bacaanOptions.length ? `
+      <select class="rad-bacaan-template-select" data-jenisid="${j.id}">
+        <option value="">-- pilih dari bacaan tersimpan (opsional) --</option>
+        ${bacaanOptions.map(t => `<option value="${t.id}">${escapeHTML(t.bacaan.length > 70 ? t.bacaan.slice(0, 70) + '…' : t.bacaan)}</option>`).join('')}
+      </select>` : ''}
       <textarea rows="3" class="rad-temuan-input" data-jenisid="${j.id}">${escapeHTML(rec.hasilBacaan)}</textarea>
       <label>Kesan</label>
       ${kesanOptions.length ? `
@@ -1350,13 +1357,25 @@ function openHasilRad(regId) {
 }
 
 $('#hasilRadWrap').addEventListener('change', (e) => {
-  const sel = e.target.closest('.rad-kesan-template-select');
-  if (!sel || !sel.value) return;
-  const jenisId = sel.dataset.jenisid;
-  const entry = (DB.getKesanTemplate()[jenisId] || []).find(t => t.id === sel.value);
-  if (!entry) return;
-  const ta = $(`#hasilRadWrap .rad-kesan-input[data-jenisid="${jenisId}"]`);
-  if (ta) ta.value = entry.kesan;
+  const kesanSel = e.target.closest('.rad-kesan-template-select');
+  if (kesanSel && kesanSel.value) {
+    const jenisId = kesanSel.dataset.jenisid;
+    const entry = (DB.getKesanTemplate()[jenisId] || []).find(t => t.id === kesanSel.value);
+    if (entry) {
+      const ta = $(`#hasilRadWrap .rad-kesan-input[data-jenisid="${jenisId}"]`);
+      if (ta) ta.value = entry.kesan;
+    }
+    return;
+  }
+  const bacaanSel = e.target.closest('.rad-bacaan-template-select');
+  if (bacaanSel && bacaanSel.value) {
+    const jenisId = bacaanSel.dataset.jenisid;
+    const entry = (DB.getBacaanTemplate()[jenisId] || []).find(t => t.id === bacaanSel.value);
+    if (entry) {
+      const ta = $(`#hasilRadWrap .rad-temuan-input[data-jenisid="${jenisId}"]`);
+      if (ta) ta.value = entry.bacaan;
+    }
+  }
 });
 
 async function hapusHasilTestRad(regId, jenisId) {
@@ -1380,11 +1399,31 @@ $('#formHasilRad').addEventListener('submit', (e) => {
   if (!reg) return;
 
   const hasil = reg.hasil || {};
+  const bacaanTemplates = DB.getBacaanTemplate();
   $all('.rad-temuan-input').forEach(inp => {
     const id = inp.dataset.jenisid;
+    const teks = inp.value.trim();
     if (!hasil[id]) hasil[id] = {};
-    hasil[id].hasilBacaan = inp.value.trim();
+    hasil[id].hasilBacaan = teks;
+    if (!teks) return;
+    if (!bacaanTemplates[id]) bacaanTemplates[id] = [];
+    const existingBacaan = bacaanTemplates[id].find(t => t.bacaan.trim() === teks);
+    if (existingBacaan) {
+      existingBacaan.patientRegId = reg.id;
+      existingBacaan.patientNama = reg.nama;
+      existingBacaan.patientNoRM = reg.noRM;
+    } else {
+      bacaanTemplates[id].push({
+        id: uid('bc'),
+        bacaan: teks,
+        createdAt: Date.now(),
+        patientRegId: reg.id,
+        patientNama: reg.nama,
+        patientNoRM: reg.noRM
+      });
+    }
   });
+  DB.saveBacaanTemplate(bacaanTemplates);
 
   const kesanTemplates = DB.getKesanTemplate();
   $all('.rad-kesan-input').forEach(inp => {
@@ -1420,184 +1459,196 @@ $('#formHasilRad').addEventListener('submit', (e) => {
   renderDaftarRad();
 });
 
-/* ============================ RADIOLOGI: EDIT2 (KATALOG LENGKAP) ============================ */
+/* ============================ RADIOLOGI: TAMPUNGAN BACAAN PEMERIKSAAN ============================ */
+/* Bukan untuk menambah pemeriksaan ke pendaftaran — ini "tampungan" berisi
+   contoh/variasi Hasil Bacaan tersimpan per jenis pemeriksaan (Thorax, BNO,
+   dst), yang nantinya dipilih radiolog sebagai titik awal saat membaca
+   sebuah foto, lalu disimpan ke dalam hasil pemeriksaan pasien terkait.
+   Strukturnya sama persis dengan tampungan Kesan Pemeriksaan Radiologi. */
 
-let hasilRegRad2Id = null;
-let radEdit2Items = {};
-let radEdit2JenisMap = {};
-let activeRadEdit2JenisId = null;
+let activeBacaanTabId = null;
+let editingBacaanEntryId = null;
 
-function accordionBadgeHTML(jenisId) {
-  const st = radEdit2Items[jenisId];
-  const j = radEdit2JenisMap[jenisId];
-  return st.added
-    ? '<span class="accordion-badge accordion-badge-added">&#10003; Ditambahkan</span>'
-    : `<span class="accordion-badge">${formatRupiah(j.harga)}</span>`;
+function openEditRadiologi() {
+  showView('rad-edit2');
+  renderBacaanTemplateMaster();
 }
 
-/* Panel per pemeriksaan: pilih apakah masuk ke pendaftaran ini. */
-function accordionItemBodyHTML(jenisId) {
-  const st = radEdit2Items[jenisId];
-  const j = radEdit2JenisMap[jenisId];
-  return st.added
-    ? `<div class="delphi-placeholder">&#10003; Pemeriksaan ini sudah termasuk dalam pendaftaran.</div>`
-    : `<button type="button" class="btn btn-sm btn-primary accordion-tambah-btn">+ Tambah Pemeriksaan Ini (${formatRupiah(j.harga)})</button>`;
+function bacaanTemplateBadgeHTML(jenisId) {
+  const list = DB.getBacaanTemplate()[jenisId] || [];
+  return list.length > 0
+    ? `<span class="accordion-badge accordion-badge-added">${list.length} Bacaan Tersimpan</span>`
+    : '<span class="accordion-badge">Belum ada bacaan</span>';
 }
 
-/* Menyimpan langsung pilihan pemeriksaan ke data pendaftaran, tanpa menunggu
-   tombol Simpan di bawah. */
-function persistAccordionItem(jenisId) {
-  const list = DB.getRegistrasiRadiologi();
-  const reg = list.find(r => r.id === hasilRegRad2Id);
-  if (!reg) return;
-  const st = radEdit2Items[jenisId];
-
-  const jenisIdSet = new Set(reg.jenisIds || []);
-  if (st.added) jenisIdSet.add(jenisId); else jenisIdSet.delete(jenisId);
-  const idsArr = Array.from(jenisIdSet);
-  const jenisMaster = DB.getJenisRadiologi();
-
-  reg.jenisIds = idsArr;
-  reg.jenisSnapshot = idsArr.map(id => JSON.parse(JSON.stringify(jenisMaster.find(j => j.id === id) || radEdit2JenisMap[id])));
-  reg.totalHarga = reg.jenisSnapshot.reduce((sum, j) => sum + (Number(j.harga) || 0), 0);
-  reg.updatedAt = Date.now();
-
-  DB.saveRegistrasiRadiologi(list);
-}
-
-/* Gaya Delphi 7: daftar pemeriksaan sebagai listbox vertikal di kiri (Thorax
-   paling atas, lalu BNO dst di bawahnya). Klik satu baris -> panel kanan
-   menampilkan status pemeriksaan itu. */
-function renderRadEdit2Accordion(jenisAll) {
-  const wrap = $('#radEdit2Wrap');
+function renderBacaanTemplateMaster() {
+  const jenisAll = DB.getJenisRadiologi().filter(j => j.aktif !== false);
+  const wrap = $('#bacaanTemplateWrap');
   let html = '';
   MODALITAS_LIST.forEach(modalitas => {
     const items = jenisAll.filter(j => j.modalitas === modalitas);
     if (items.length === 0) return;
-    html += `<div class="delphi-list-group">${escapeHTML(modalitas)}</div>`;
-    html += items.map(j => {
-      const st = radEdit2Items[j.id];
-      const cls = 'delphi-list-item' + (activeRadEdit2JenisId === j.id ? ' active' : '') + (st.added ? ' delphi-list-item-added' : '');
-      return `<div class="${cls}" data-jenisid="${j.id}">${escapeHTML(j.nama)}${st.added ? ' &#10003;' : ''}</div>`;
-    }).join('');
+    html += `<div class="jenis-group-title">${escapeHTML(modalitas)}</div>`;
+    html += `<div class="kesan-tab-row">` + items.map(j => `
+      <button type="button" class="kesan-tab${activeBacaanTabId === j.id ? ' active' : ''}" data-jenisid="${j.id}">${escapeHTML(j.nama)}</button>
+    `).join('') + `</div>`;
   });
   wrap.innerHTML = html;
-  renderRadEdit2Panel();
+  renderBacaanTabPanel();
 }
 
-function renderRadEdit2Panel() {
-  const panel = $('#radEdit2Panel');
-  if (!activeRadEdit2JenisId) {
-    panel.innerHTML = `<div class="delphi-placeholder">Pilih salah satu pemeriksaan di daftar kiri (Thorax, BNO, dst).</div>`;
+function bacaanEntryHTML(jenisId, entry) {
+  if (editingBacaanEntryId === entry.id) {
+    return `
+      <div class="kesan-entry" data-entryid="${entry.id}">
+        <textarea rows="4" class="kesan-entry-edit-input">${escapeHTML(entry.bacaan)}</textarea>
+        <div class="kesan-entry-meta">
+          <span class="kesan-entry-info">${new Date(entry.createdAt).toLocaleString('id-ID')}</span>
+          <div class="accordion-actions">
+            <button type="button" class="btn btn-sm btn-primary kesan-entry-simpan-edit-btn">Simpan</button>
+            <button type="button" class="btn btn-sm btn-light kesan-entry-batal-edit-btn">Batal</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="kesan-entry" data-entryid="${entry.id}">
+      <div class="kesan-entry-text">${escapeHTML(entry.bacaan)}</div>
+      <div class="kesan-entry-meta">
+        <span class="kesan-entry-info">
+          ${new Date(entry.createdAt).toLocaleString('id-ID')}
+          ${entry.patientNama ? `&bull; <button type="button" class="kesan-entry-patient-link" data-regid="${entry.patientRegId}">&#128100; ${escapeHTML(entry.patientNama)} (RM ${escapeHTML(entry.patientNoRM || '-')})</button>` : ''}
+        </span>
+        <div class="accordion-actions">
+          <button type="button" class="btn btn-sm btn-light kesan-entry-copy-btn">Copy</button>
+          <button type="button" class="btn btn-sm btn-light kesan-entry-edit-btn">Edit</button>
+          <button type="button" class="btn btn-sm btn-danger kesan-entry-hapus-btn">Hapus</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderBacaanTabPanel() {
+  const panel = $('#bacaanTabPanel');
+  if (!activeBacaanTabId) {
+    panel.innerHTML = `<div class="empty-state">Pilih salah satu pemeriksaan di atas (Thorax, BNO, dst) untuk melihat atau menambah Bacaan.</div>`;
     return;
   }
-  const j = radEdit2JenisMap[activeRadEdit2JenisId];
-  if (!j) { activeRadEdit2JenisId = null; renderRadEdit2Panel(); return; }
+  const j = DB.getJenisRadiologi().find(x => x.id === activeBacaanTabId);
+  if (!j) { activeBacaanTabId = null; renderBacaanTabPanel(); return; }
+
+  const list = (DB.getBacaanTemplate()[activeBacaanTabId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
+  const entriesHTML = list.length === 0
+    ? `<div class="small-text">Belum ada bacaan tersimpan untuk pemeriksaan ini.</div>`
+    : list.map(entry => bacaanEntryHTML(activeBacaanTabId, entry)).join('');
+
   panel.innerHTML = `
-    <div class="delphi-groupbox">
-      <div class="delphi-groupbox-title">${escapeHTML(j.nama)} (${escapeHTML(j.modalitas)})</div>
-      <div class="delphi-groupbox-badge">${accordionBadgeHTML(activeRadEdit2JenisId)}</div>
-      ${accordionItemBodyHTML(activeRadEdit2JenisId)}
+    <div class="kesan-panel-head">
+      <h3>${escapeHTML(j.nama)} <span class="small-text">(${escapeHTML(j.modalitas)})</span></h3>
+      ${bacaanTemplateBadgeHTML(activeBacaanTabId)}
     </div>
+    <label>Tambah Varian Bacaan Baru</label>
+    <textarea rows="4" class="kesan-template-input" placeholder="Tulis salah satu kemungkinan hasil bacaan untuk pemeriksaan ini..."></textarea>
+    <div class="accordion-actions" style="margin-bottom:16px;">
+      <button type="button" class="btn btn-sm btn-primary kesan-template-tambah-btn">+ Tambah Bacaan</button>
+    </div>
+    <div class="kesan-entry-list">${entriesHTML}</div>
   `;
 }
 
-function refreshRadEdit2Tab(jenisId) {
-  const row = document.querySelector(`#radEdit2Wrap .delphi-list-item[data-jenisid="${jenisId}"]`);
-  if (row) {
-    const st = radEdit2Items[jenisId];
-    const j = radEdit2JenisMap[jenisId];
-    row.classList.toggle('delphi-list-item-added', st.added);
-    row.innerHTML = `${escapeHTML(j.nama)}${st.added ? ' &#10003;' : ''}`;
-  }
-  renderRadEdit2Panel();
-}
-
-function openRadEdit2(regId) {
-  const reg = DB.getRegistrasiRadiologi().find(r => r.id === regId);
-  if (!reg) return;
-  hasilRegRad2Id = regId;
-
-  const dokter = DB.getDokter().find(d => d.id === reg.dokterId);
-  const radiografer = DB.getRadiografer().find(r => r.id === reg.radiograferId);
-  const dokterSp = DB.getDokterRadiologi().find(d => d.id === reg.dokterSpId);
-
-  $('#radEdit2PasienInfo').innerHTML = `
-    <div class="info-mini-grid">
-      <div><strong>${escapeHTML(reg.nama)}</strong> (${reg.jk === 'P' ? 'P' : 'L'}, ${escapeHTML(reg.umur || '-')})</div>
-      <div>No. RM: ${escapeHTML(reg.noRM)} — No. Reg: ${escapeHTML(reg.noReg)}</div>
-      <div>Tanggal: ${formatTanggal(reg.tanggal)}</div>
-      <div>Dokter Pengirim: ${escapeHTML(dokter ? dokter.nama : '-')}</div>
-      <div>Radiografer: ${escapeHTML(radiografer ? radiografer.nama : '-')}</div>
-      <div>Dokter Sp.Radiologi: ${escapeHTML(dokterSp ? dokterSp.nama : '-')}</div>
-    </div>`;
-
-  const jenisAll = DB.getJenisRadiologi().filter(j => j.aktif !== false);
-  radEdit2JenisMap = {};
-  jenisAll.forEach(j => { radEdit2JenisMap[j.id] = j; });
-
-  const addedIds = new Set(reg.jenisIds || []);
-  radEdit2Items = {};
-  jenisAll.forEach(j => {
-    radEdit2Items[j.id] = { added: addedIds.has(j.id) };
-  });
-
-  activeRadEdit2JenisId = null;
-  renderRadEdit2Accordion(jenisAll);
-  showView('rad-edit2');
-}
-
-$('#radEdit2Wrap').addEventListener('click', (e) => {
-  const row = e.target.closest('.delphi-list-item');
-  if (row) {
-    activeRadEdit2JenisId = row.dataset.jenisid;
-    $all('#radEdit2Wrap .delphi-list-item').forEach(b => b.classList.toggle('active', b === row));
-    renderRadEdit2Panel();
+$('#bacaanTemplateWrap').addEventListener('click', (e) => {
+  const tab = e.target.closest('.kesan-tab');
+  if (tab) {
+    activeBacaanTabId = tab.dataset.jenisid;
+    editingBacaanEntryId = null;
+    renderBacaanTemplateMaster();
+    return;
   }
 });
 
-$('#radEdit2Panel').addEventListener('click', (e) => {
-  const jid = activeRadEdit2JenisId;
-  if (!jid) return;
-  const tambahBtn = e.target.closest('.accordion-tambah-btn');
+$('#bacaanTabPanel').addEventListener('click', (e) => {
+  const tambahBtn = e.target.closest('.kesan-template-tambah-btn');
   if (tambahBtn) {
-    radEdit2Items[jid].added = true;
-    persistAccordionItem(jid);
-    refreshRadEdit2Tab(jid);
-    showToast('Pemeriksaan ditambahkan.');
-    renderDaftarRad();
+    const textarea = $('#bacaanTabPanel .kesan-template-input');
+    const teks = textarea.value.trim();
+    if (!teks) { showToast('Tulis bacaan terlebih dahulu.'); return; }
+    const templates = DB.getBacaanTemplate();
+    if (!templates[activeBacaanTabId]) templates[activeBacaanTabId] = [];
+    templates[activeBacaanTabId].push({ id: uid('bc'), bacaan: teks, createdAt: Date.now() });
+    DB.saveBacaanTemplate(templates);
+    showToast('Bacaan baru ditambahkan.');
+    renderBacaanTabPanel();
     return;
   }
-});
-
-$('#formRadEdit2').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const list = DB.getRegistrasiRadiologi();
-  const reg = list.find(r => r.id === hasilRegRad2Id);
-  if (!reg) return;
-
-  const addedIds = Object.keys(radEdit2Items).filter(id => radEdit2Items[id].added);
-  if (addedIds.length === 0) {
-    showToast('Pilih minimal satu pemeriksaan.');
+  const copyBtn = e.target.closest('.kesan-entry-copy-btn');
+  if (copyBtn) {
+    const entryId = copyBtn.closest('.kesan-entry').dataset.entryid;
+    const entry = (DB.getBacaanTemplate()[activeBacaanTabId] || []).find(x => x.id === entryId);
+    if (entry) {
+      copyTextToClipboard(entry.bacaan);
+      showToast('Bacaan disalin ke clipboard.');
+    }
+    return;
+  }
+  const editBtn = e.target.closest('.kesan-entry-edit-btn');
+  if (editBtn) {
+    editingBacaanEntryId = editBtn.closest('.kesan-entry').dataset.entryid;
+    renderBacaanTabPanel();
+    return;
+  }
+  const batalBtn = e.target.closest('.kesan-entry-batal-edit-btn');
+  if (batalBtn) {
+    editingBacaanEntryId = null;
+    renderBacaanTabPanel();
+    return;
+  }
+  const simpanEditBtn = e.target.closest('.kesan-entry-simpan-edit-btn');
+  if (simpanEditBtn) {
+    const entryId = simpanEditBtn.closest('.kesan-entry').dataset.entryid;
+    const teks = simpanEditBtn.closest('.kesan-entry').querySelector('.kesan-entry-edit-input').value.trim();
+    if (!teks) { showToast('Bacaan tidak boleh kosong.'); return; }
+    const templates = DB.getBacaanTemplate();
+    const entry = (templates[activeBacaanTabId] || []).find(x => x.id === entryId);
+    if (entry) entry.bacaan = teks;
+    DB.saveBacaanTemplate(templates);
+    editingBacaanEntryId = null;
+    showToast('Bacaan diperbarui.');
+    renderBacaanTabPanel();
+    return;
+  }
+  const hapusBtn = e.target.closest('.kesan-entry-hapus-btn');
+  if (hapusBtn) {
+    const entryId = hapusBtn.closest('.kesan-entry').dataset.entryid;
+    const templates = DB.getBacaanTemplate();
+    templates[activeBacaanTabId] = (templates[activeBacaanTabId] || []).filter(entry => entry.id !== entryId);
+    DB.saveBacaanTemplate(templates);
+    showToast('Bacaan dihapus.');
+    renderBacaanTabPanel();
+    return;
+  }
+  const patientLink = e.target.closest('.kesan-entry-patient-link');
+  if (patientLink) {
+    const regId = patientLink.dataset.regid;
+    const reg = DB.getRegistrasiRadiologi().find(r => r.id === regId);
+    if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
+    openHasilRad(regId);
     return;
   }
 
-  const jenisMaster = DB.getJenisRadiologi();
-  reg.jenisIds = addedIds;
-  reg.jenisSnapshot = addedIds.map(id => JSON.parse(JSON.stringify(jenisMaster.find(j => j.id === id))));
-  const oldHasil = reg.hasil || {};
-  const hasil = {};
-  addedIds.forEach(id => {
-    hasil[id] = oldHasil[id] || { hasilBacaan: '', kesan: '' };
-  });
-  reg.hasil = hasil;
-  reg.totalHarga = reg.jenisSnapshot.reduce((sum, j) => sum + (Number(j.harga) || 0), 0);
-  reg.updatedAt = Date.now();
-
-  DB.saveRegistrasiRadiologi(list);
-  showToast('Perubahan pemeriksaan radiologi disimpan.');
-  showView('rad-daftar');
-  renderDaftarRad();
+  /* Klik di baris bacaan mana pun (bukan tombol Edit/Hapus/dst di atas, dan
+     bukan saat sedang mode edit teks) langsung melompat ke Hasil pasien
+     terkait, tempat bacaan itu sebenarnya disimpan. */
+  const entryRow = e.target.closest('.kesan-entry');
+  if (entryRow && e.target.tagName !== 'TEXTAREA') {
+    const entryId = entryRow.dataset.entryid;
+    if (editingBacaanEntryId === entryId) return;
+    const entry = (DB.getBacaanTemplate()[activeBacaanTabId] || []).find(x => x.id === entryId);
+    if (!entry) return;
+    if (!entry.patientRegId) { showToast('Bacaan ini belum terhubung ke data pasien manapun.'); return; }
+    const reg = DB.getRegistrasiRadiologi().find(r => r.id === entry.patientRegId);
+    if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
+    openHasilRad(entry.patientRegId);
+  }
 });
 
 /* ============================ RADIOLOGI: MASTER JENIS & TARIF ============================ */
@@ -1851,12 +1902,12 @@ $('#kesanTabPanel').addEventListener('click', (e) => {
     const regId = patientLink.dataset.regid;
     const reg = DB.getRegistrasiRadiologi().find(r => r.id === regId);
     if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
-    openRadEdit2(regId);
+    openHasilRad(regId);
     return;
   }
 
   /* Klik di baris kesan mana pun (bukan tombol Edit/Hapus/dst di atas, dan bukan
-     saat sedang mode edit teks) langsung melompat ke Edit2 pasien terkait. */
+     saat sedang mode edit teks) langsung melompat ke Hasil pasien terkait. */
   const entryRow = e.target.closest('.kesan-entry');
   if (entryRow && e.target.tagName !== 'TEXTAREA') {
     const entryId = entryRow.dataset.entryid;
@@ -1866,7 +1917,7 @@ $('#kesanTabPanel').addEventListener('click', (e) => {
     if (!entry.patientRegId) { showToast('Kesan ini belum terhubung ke data pasien manapun.'); return; }
     const reg = DB.getRegistrasiRadiologi().find(r => r.id === entry.patientRegId);
     if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
-    openRadEdit2(entry.patientRegId);
+    openHasilRad(entry.patientRegId);
   }
 });
 
@@ -3228,6 +3279,7 @@ function refreshView(view) {
   else if (view === 'rad-daftar') renderDaftarRad();
   else if (view === 'rad-master-jenis') renderJenisMaster();
   else if (view === 'rad-master-kesan') renderKesanTemplateMaster();
+  else if (view === 'rad-edit2') renderBacaanTemplateMaster();
   else if (view === 'rad-data-sekunder') { renderKwitansiList(); populateTahunYearSelect(); }
   else if (view === 'data-sekunder') { renderKwitansiListLab(); populateTahunYearSelectLab(); }
   else if (view === 'farmasi-obat') renderObatMaster();

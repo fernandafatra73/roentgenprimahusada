@@ -40,7 +40,7 @@ const ROLES = {
   ceo: {
     label: 'CEO', views: [
       'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-data-sekunder',
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder',
       'kasir', 'admin', 'pengaturan', 'users', 'keuangan-sharing', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
@@ -48,7 +48,7 @@ const ROLES = {
   manajer: {
     label: 'Manajer', views: [
       'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-data-sekunder',
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder',
       'kasir', 'admin', 'pengaturan', 'keuangan-sharing', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]

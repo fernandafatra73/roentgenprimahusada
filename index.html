@@ -611,27 +611,15 @@
     </form>
   </section>
 
-  <!-- ======================= VIEW: EDIT2 (KATALOG LENGKAP PEMERIKSAAN RADIOLOGI) ======================= -->
+  <!-- ======================= VIEW: EDIT RADIOLOGI (TAMPUNGAN BACAAN PEMERIKSAAN) ======================= -->
   <section id="view-rad-edit2" class="view">
     <div class="view-header">
-      <h2>Edit2 — Pemeriksaan Radiologi Lengkap</h2>
-      <button class="btn btn-light" data-back="rad-daftar">&larr; Kembali</button>
+      <h2>Edit Radiologi</h2>
     </div>
-
-    <div class="card" id="radEdit2PasienInfo"></div>
-
-    <form id="formRadEdit2" class="card">
-      <div class="delphi-frame">
-        <div class="delphi-layout">
-          <div class="delphi-listbox" id="radEdit2Wrap"></div>
-          <div class="delphi-detail" id="radEdit2Panel"></div>
-        </div>
-      </div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Simpan</button>
-        <button type="button" class="btn btn-light" data-back="rad-daftar">Batal</button>
-      </div>
-    </form>
+    <div class="kesan-layout">
+      <div id="bacaanTemplateWrap" class="kesan-sidebar"></div>
+      <div class="card" id="bacaanTabPanel"></div>
+    </div>
   </section>
 
   <!-- ======================= VIEW: MASTER JENIS & TARIF RADIOLOGI ======================= -->
