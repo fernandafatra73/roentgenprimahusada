@@ -30,6 +30,7 @@ const DB_KEYS = {
   KARYAWAN: 'lab_karyawan',
   GAJI_KARYAWAN: 'gaji_karyawan',
   RUNNING_TEXT: 'running_text',
+  MUSIK: 'musik_playlist',
   FARMASI_OBAT: 'farmasi_obat',
   RAD_PEMERIKSAAN_KESAN: 'rad_pemeriksaan_kesan'
 };
@@ -46,7 +47,7 @@ const ROLES = {
     label: 'CEO', views: [
       'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
       'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil',
-      'kasir', 'admin', 'karyawan', 'running-text', 'pengaturan', 'users', 'keuangan-sharing', 'gaji-karyawan', 'farmasi-obat',
+      'kasir', 'admin', 'karyawan', 'running-text', 'musik', 'pengaturan', 'users', 'keuangan-sharing', 'gaji-karyawan', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
@@ -54,11 +55,11 @@ const ROLES = {
     label: 'Manajer', views: [
       'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
       'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil',
-      'kasir', 'admin', 'karyawan', 'running-text', 'pengaturan', 'keuangan-sharing', 'gaji-karyawan', 'farmasi-obat',
+      'kasir', 'admin', 'karyawan', 'running-text', 'musik', 'pengaturan', 'keuangan-sharing', 'gaji-karyawan', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
-  karyawan: { label: 'Karyawan', views: ['dashboard', 'daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir', 'rad-cetak-universal', 'rad-print-hasil'] }
+  karyawan: { label: 'Karyawan', views: ['dashboard', 'daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir', 'rad-cetak-universal', 'rad-print-hasil', 'musik'] }
 };
 
 const DEFAULT_LOGO =
@@ -456,6 +457,13 @@ const DB = {
     saveJSON(DB_KEYS.RUNNING_TEXT, list);
   },
 
+  getMusik() {
+    return loadJSON(DB_KEYS.MUSIK, []);
+  },
+  saveMusik(list) {
+    saveJSON(DB_KEYS.MUSIK, list);
+  },
+
   getRegistrasiRadiologi() {
     return loadJSON(DB_KEYS.RAD_REG, []);
   },
@@ -561,6 +569,7 @@ const DB = {
     if (!hasKey(DB_KEYS.KARYAWAN)) this.saveKaryawan([]);
     if (!hasKey(DB_KEYS.GAJI_KARYAWAN)) this.saveGajiKaryawan([]);
     if (!hasKey(DB_KEYS.RUNNING_TEXT)) this.saveRunningText([]);
+    if (!hasKey(DB_KEYS.MUSIK)) this.saveMusik([]);
     this.migrate();
   },
 

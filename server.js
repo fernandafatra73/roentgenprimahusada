@@ -13,11 +13,14 @@ try { process.loadEnvFile(); } catch (e) { /* .env opsional — abaikan kalau ti
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 const Anthropic = require('@anthropic-ai/sdk');
 
 const PORT = process.env.PORT || 8791;
 const DB_FILE = path.join(__dirname, 'data.sqlite');
+const MEDIA_DIR = path.join(__dirname, 'media');
+if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR);
 
 const db = new DatabaseSync(DB_FILE);
 db.exec(`
@@ -133,6 +136,42 @@ app.post('/api/ai-radiolog', async (req, res) => {
     console.error('AI Radiolog error:', err);
     res.status(500).json({ error: 'Gagal memanggil AI: ' + (err.message || 'kesalahan tidak diketahui') });
   }
+});
+
+/* ==========================================================================
+   Musik Prima Husada — upload file MP3/MP4 ke folder lokal "media/"
+   (bukan disimpan sebagai base64 di kv_store supaya /api/kv tetap ringan).
+   ========================================================================== */
+
+app.post('/api/musik-upload', express.json({ limit: '150mb' }), (req, res) => {
+  const { filename, dataBase64 } = req.body || {};
+  if (!filename || !dataBase64) {
+    res.status(400).json({ error: 'Body harus berisi filename dan dataBase64.' });
+    return;
+  }
+  const ext = path.extname(filename).toLowerCase();
+  const EXT_DIDUKUNG = ['.mp3', '.mp4', '.mpeg', '.mpg'];
+  if (!EXT_DIDUKUNG.includes(ext)) {
+    res.status(400).json({ error: 'Hanya file .mp3, .mp4, .mpeg, atau .mpg yang didukung.' });
+    return;
+  }
+  const safeName = `musik_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+  const base64Data = dataBase64.replace(/^data:[^;]+;base64,/, '');
+  fs.writeFile(path.join(MEDIA_DIR, safeName), Buffer.from(base64Data, 'base64'), (err) => {
+    if (err) {
+      console.error('Gagal menyimpan file musik:', err);
+      res.status(500).json({ error: 'Gagal menyimpan file di server.' });
+      return;
+    }
+    res.json({ ok: true, filename: safeName, url: '/media/' + safeName });
+  });
+});
+
+app.delete('/api/musik-upload/:filename', (req, res) => {
+  const filename = path.basename(req.params.filename);
+  fs.unlink(path.join(MEDIA_DIR, filename), () => {
+    res.json({ ok: true });
+  });
 });
 
 app.use(express.static(__dirname));

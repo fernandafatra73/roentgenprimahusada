@@ -3779,6 +3779,122 @@ $('#btnAddRunningText').addEventListener('click', () => {
   showToast('Kata penyemangat ditambahkan.');
 });
 
+/* =============================== MUSIK PRIMA HUSADA =========================== */
+/* File mp3/mp4 diunggah ke folder "media/" di server (bukan base64 di
+   kv_store, supaya /api/kv tetap ringan). Elemen audio/video pemutarnya
+   hidup di luar <main> (lihat index.html), jadi tetap lanjut bunyi walau
+   pindah halaman/menu di dalam aplikasi. */
+
+function renderMusik() {
+  const list = DB.getMusik();
+  const tbody = $('#tblMusikBody');
+  tbody.innerHTML = '';
+  $('#emptyMusik').style.display = list.length ? 'none' : 'block';
+  list.forEach(m => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(m.judul)}</td>
+      <td>${escapeHTML((m.tipe || '').toUpperCase())}</td>
+      <td class="aksi-cell"></td>
+    `;
+    const aksiCell = tr.querySelector('.aksi-cell');
+    aksiCell.appendChild(makeBtn('Putar', 'btn-primary', () => putarMusik(m)));
+    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+      const ok = await confirmAsync(`Hapus "${m.judul}"?`);
+      if (!ok) return;
+      try { await fetch('/api/musik-upload/' + encodeURIComponent(m.filename), { method: 'DELETE' }); } catch (e) { /* file mungkin sudah hilang, lanjut hapus datanya */ }
+      DB.saveMusik(DB.getMusik().filter(x => x.id !== m.id));
+      renderMusik();
+      showToast('Musik/video dihapus.');
+    }));
+    tbody.appendChild(tr);
+  });
+}
+
+$('#btnAddMusik').addEventListener('click', async () => {
+  const judulInput = $('#newMusikJudul');
+  const fileInput = $('#newMusikFile');
+  const judul = judulInput.value.trim();
+  const file = fileInput.files[0];
+  if (!judul) { showToast('Judul tidak boleh kosong.'); return; }
+  if (!file) { showToast('Pilih file mp3, mp4, atau mpeg terlebih dahulu.'); return; }
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['mp3', 'mp4', 'mpeg', 'mpg'].includes(ext)) { showToast('Hanya file .mp3, .mp4, .mpeg, atau .mpg yang didukung.'); return; }
+
+  const statusEl = $('#musikUploadStatus');
+  statusEl.textContent = 'Mengunggah, mohon tunggu...';
+  try {
+    const dataBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Gagal membaca file.'));
+      reader.readAsDataURL(file);
+    });
+    const res = await fetch('/api/musik-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, dataBase64 })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal mengunggah file.');
+    const list = DB.getMusik();
+    list.push({ id: uid('musik'), judul, filename: data.filename, tipe: ext, createdAt: Date.now() });
+    DB.saveMusik(list);
+    judulInput.value = '';
+    fileInput.value = '';
+    statusEl.textContent = '';
+    renderMusik();
+    showToast('Musik/video ditambahkan.');
+  } catch (err) {
+    statusEl.textContent = '';
+    showToast(err.message || 'Gagal mengunggah file.');
+  }
+});
+
+function musikElAktif() {
+  const videoEl = $('#musikVideoEl');
+  return videoEl.style.display !== 'none' ? videoEl : $('#musikAudioEl');
+}
+
+function putarMusik(m) {
+  const audioEl = $('#musikAudioEl');
+  const videoEl = $('#musikVideoEl');
+  const url = '/media/' + encodeURIComponent(m.filename);
+  if (m.tipe === 'mp4') {
+    audioEl.pause();
+    videoEl.style.display = '';
+    videoEl.src = url;
+    videoEl.play().catch(() => {});
+  } else {
+    videoEl.pause();
+    videoEl.style.display = 'none';
+    audioEl.src = url;
+    audioEl.play().catch(() => {});
+  }
+  $('#musikPlayerTitle').textContent = m.judul;
+  $('#musikBtnPlayPause').textContent = 'Pause';
+  $('#musikPlayerBar').style.display = 'flex';
+}
+
+$('#musikBtnPlayPause').addEventListener('click', () => {
+  const el = musikElAktif();
+  if (el.paused) {
+    el.play().catch(() => {});
+    $('#musikBtnPlayPause').textContent = 'Pause';
+  } else {
+    el.pause();
+    $('#musikBtnPlayPause').textContent = 'Play';
+  }
+});
+
+$('#musikBtnStop').addEventListener('click', () => {
+  const audioEl = $('#musikAudioEl');
+  const videoEl = $('#musikVideoEl');
+  audioEl.pause(); audioEl.removeAttribute('src'); audioEl.load();
+  videoEl.pause(); videoEl.removeAttribute('src'); videoEl.load();
+  $('#musikPlayerBar').style.display = 'none';
+});
+
 /* =============================== GAJI KARYAWAN =============================== */
 
 let editingGajiId = null;
@@ -4071,6 +4187,100 @@ $('#btnResetFilter').addEventListener('click', () => {
   renderDaftar();
 });
 
+/* ============================ TIMER PEMERIKSAAN & JAM ANALOG ============================ */
+/* Tombol LED membuka/menutup panel timer (tersembunyi secara default).
+   "Start Pemeriksaan" = stopwatch (hitung naik, tanpa batas waktu).
+   Tombol menit = hitung mundur dari durasi itu, bunyi + toast saat habis. */
+
+$('#btnToggleLED').addEventListener('click', () => {
+  const panel = $('#ledPanel');
+  panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+});
+
+let timerIntervalId = null;
+let timerMode = null; // 'stopwatch' | 'countdown'
+let timerStartAt = 0;
+let timerDurasiMs = 0;
+
+function formatDurasi(ms) {
+  const totalDetik = Math.max(0, Math.round(ms / 1000));
+  const mm = Math.floor(totalDetik / 60);
+  const ss = totalDetik % 60;
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+
+function beepTimerSelesai() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+    osc.onended = () => ctx.close();
+  } catch (e) { /* Web Audio tidak didukung — abaikan, toast tetap muncul */ }
+}
+
+function tickTimerStatus() {
+  const statusEl = $('#timerStatus');
+  if (timerMode === 'stopwatch') {
+    statusEl.textContent = `Pemeriksaan berjalan — ${formatDurasi(Date.now() - timerStartAt)}`;
+  } else if (timerMode === 'countdown') {
+    const sisa = timerStartAt + timerDurasiMs - Date.now();
+    if (sisa <= 0) {
+      statusEl.textContent = 'Waktu habis!';
+      beepTimerSelesai();
+      showToast('Waktu pemeriksaan habis!');
+      stopTimer();
+      return;
+    }
+    statusEl.textContent = `Sisa waktu — ${formatDurasi(sisa)}`;
+  }
+}
+
+function startTimer(mode, menit) {
+  stopTimer();
+  timerMode = mode;
+  timerStartAt = Date.now();
+  timerDurasiMs = menit ? menit * 60000 : 0;
+  $('#btnStopTimer').style.display = '';
+  tickTimerStatus();
+  timerIntervalId = setInterval(tickTimerStatus, 1000);
+}
+
+function stopTimer() {
+  if (timerIntervalId) clearInterval(timerIntervalId);
+  timerIntervalId = null;
+  timerMode = null;
+  $('#btnStopTimer').style.display = 'none';
+  $('#timerStatus').textContent = 'Belum ada pemeriksaan berjalan.';
+}
+
+$('#btnStartPemeriksaan').addEventListener('click', () => startTimer('stopwatch'));
+$all('.timer-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => startTimer('countdown', Number(btn.dataset.menit)));
+});
+$('#btnStopTimer').addEventListener('click', stopTimer);
+
+function tickAnalogClock() {
+  const now = new Date();
+  const jam = now.getHours() % 12;
+  const menit = now.getMinutes();
+  const detik = now.getSeconds();
+  const derajatJam = jam * 30 + menit * 0.5;
+  const derajatMenit = menit * 6 + detik * 0.1;
+  const derajatDetik = detik * 6;
+  $('#clockHourHand').style.transform = `rotate(${derajatJam}deg)`;
+  $('#clockMinuteHand').style.transform = `rotate(${derajatMenit}deg)`;
+  $('#clockSecondHand').style.transform = `rotate(${derajatDetik}deg)`;
+}
+tickAnalogClock();
+setInterval(tickAnalogClock, 1000);
+
 $('#btnTambahDaftarRad').addEventListener('click', () => openFormRad(null));
 
 $('#cariPasienRad').addEventListener('input', renderDaftarRad);
@@ -4102,6 +4312,7 @@ function refreshView(view) {
   else if (view === 'admin') renderAdmin();
   else if (view === 'karyawan') renderKaryawan();
   else if (view === 'running-text') renderRunningText();
+  else if (view === 'musik') renderMusik();
   else if (view === 'gaji-karyawan') { isiSelectKaryawanGaji(); renderGaji(); populateAdminSelect('#gajiAdminSelect'); }
   else if (view === 'rad-master-radiografer') renderRadiografer();
   else if (view === 'rad-master-dokter-sp') renderDokterSp();

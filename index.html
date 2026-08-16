@@ -106,6 +106,7 @@
           <button class="navbtn" data-view="admin">Admin</button>
           <button class="navbtn" data-view="karyawan">Karyawan</button>
           <button class="navbtn" data-view="running-text">Running Text</button>
+          <button class="navbtn" data-view="musik">Musik Prima Husada</button>
           <button class="navbtn" data-view="pengaturan">Pengaturan</button>
           <button class="navbtn" data-view="users">Pengguna</button>
         </div>
@@ -176,6 +177,53 @@
       <input type="text" id="cariPasien" placeholder="Cari nama / No. RM / No. Registrasi...">
       <input type="date" id="filterTanggal">
       <button class="btn btn-light" id="btnResetFilter">Reset</button>
+      <button type="button" class="btn btn-primary" id="btnToggleLED">LED</button>
+    </div>
+
+    <div class="card timer-clock-card" id="ledPanel" style="display:none;">
+      <div class="timer-btn-row">
+        <button type="button" class="btn btn-primary" id="btnStartPemeriksaan">Start Pemeriksaan</button>
+        <button type="button" class="btn btn-secondary timer-preset-btn" data-menit="5">5 Menit</button>
+        <button type="button" class="btn btn-secondary timer-preset-btn" data-menit="10">10 Menit</button>
+        <button type="button" class="btn btn-secondary timer-preset-btn" data-menit="15">15 Menit</button>
+        <button type="button" class="btn btn-secondary timer-preset-btn" data-menit="30">30 Menit</button>
+        <button type="button" class="btn btn-secondary timer-preset-btn" data-menit="60">60 Menit</button>
+      </div>
+      <div class="timer-status-wrap">
+        <div id="timerStatus" class="timer-status">Belum ada pemeriksaan berjalan.</div>
+        <button type="button" class="btn btn-sm btn-danger" id="btnStopTimer" style="display:none;">Stop</button>
+      </div>
+      <div class="analog-clock" id="analogClock">
+        <div class="analog-clock-tick" style="transform:rotate(0deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(30deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(60deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(90deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(120deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(150deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(180deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(210deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(240deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(270deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(300deg)"></div>
+        <div class="analog-clock-tick" style="transform:rotate(330deg)"></div>
+        <div class="analog-clock-number" style="--num-angle:30deg">1</div>
+        <div class="analog-clock-number" style="--num-angle:60deg">2</div>
+        <div class="analog-clock-number" style="--num-angle:90deg">3</div>
+        <div class="analog-clock-number" style="--num-angle:120deg">4</div>
+        <div class="analog-clock-number" style="--num-angle:150deg">5</div>
+        <div class="analog-clock-number" style="--num-angle:180deg">6</div>
+        <div class="analog-clock-number" style="--num-angle:210deg">7</div>
+        <div class="analog-clock-number" style="--num-angle:240deg">8</div>
+        <div class="analog-clock-number" style="--num-angle:270deg">9</div>
+        <div class="analog-clock-number" style="--num-angle:300deg">10</div>
+        <div class="analog-clock-number" style="--num-angle:330deg">11</div>
+        <div class="analog-clock-number" style="--num-angle:0deg">12</div>
+        <div class="analog-clock-brand">PH</div>
+        <div class="analog-clock-hand hour" id="clockHourHand"></div>
+        <div class="analog-clock-hand minute" id="clockMinuteHand"></div>
+        <div class="analog-clock-hand second" id="clockSecondHand"></div>
+        <div class="analog-clock-center"></div>
+      </div>
     </div>
 
     <div class="table-wrap">
@@ -1131,6 +1179,26 @@
     </div>
   </section>
 
+  <!-- ======================= VIEW: MUSIK PRIMA HUSADA ======================= -->
+  <section id="view-musik" class="view">
+    <div class="view-header">
+      <h2>Musik Prima Husada</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newMusikJudul" placeholder="Judul lagu / video...">
+      <input type="file" id="newMusikFile" accept=".mp3,.mp4,.mpeg,.mpg,audio/mpeg,video/mp4,video/mpeg">
+      <button class="btn btn-primary" id="btnAddMusik">Upload</button>
+    </div>
+    <div id="musikUploadStatus" class="small-text" style="margin: -8px 0 12px;"></div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Judul</th><th>Tipe</th><th>Aksi</th></tr></thead>
+        <tbody id="tblMusikBody"></tbody>
+      </table>
+      <div id="emptyMusik" class="empty-state" style="display:none">Belum ada musik/video.</div>
+    </div>
+  </section>
+
   <!-- ======================= VIEW: PENGATURAN ======================= -->
   <section id="view-pengaturan" class="view">
     <div class="view-header">
@@ -1197,6 +1265,18 @@
   </section>
 
 </main>
+
+<!-- Player musik/video persisten — di luar <main> supaya tidak ikut hilang
+     saat pindah menu/halaman, jadi lagunya tetap lanjut bunyi. -->
+<div id="musikPlayerBar" class="musik-player-bar" style="display:none;">
+  <video id="musikVideoEl" class="musik-video" style="display:none;" playsinline></video>
+  <audio id="musikAudioEl"></audio>
+  <div class="musik-player-title" id="musikPlayerTitle">-</div>
+  <div class="musik-player-controls">
+    <button type="button" class="btn btn-sm btn-light" id="musikBtnPlayPause">Pause</button>
+    <button type="button" class="btn btn-sm btn-danger" id="musikBtnStop">Stop</button>
+  </div>
+</div>
 
 <footer class="footer-marquee">
   <div class="footer-marquee-track" id="footerMarqueeTrack"></div>
