@@ -31,6 +31,8 @@ const DB_KEYS = {
   GAJI_KARYAWAN: 'gaji_karyawan',
   RUNNING_TEXT: 'running_text',
   MUSIK: 'musik_playlist',
+  RAD_BHP: 'rad_bhp',
+  PENGELUARAN_BULANAN: 'pengeluaran_bulanan',
   FARMASI_OBAT: 'farmasi_obat',
   RAD_PEMERIKSAAN_KESAN: 'rad_pemeriksaan_kesan'
 };
@@ -46,16 +48,16 @@ const ROLES = {
   ceo: {
     label: 'CEO', views: [
       'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil',
-      'kasir', 'admin', 'karyawan', 'running-text', 'musik', 'pengaturan', 'users', 'keuangan-sharing', 'gaji-karyawan', 'farmasi-obat',
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil', 'rad-bhp',
+      'kasir', 'admin', 'karyawan', 'running-text', 'musik', 'pengaturan', 'users', 'keuangan-sharing', 'gaji-karyawan', 'pengeluaran-bulanan', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
   manajer: {
     label: 'Manajer', views: [
       'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil',
-      'kasir', 'admin', 'karyawan', 'running-text', 'musik', 'pengaturan', 'keuangan-sharing', 'gaji-karyawan', 'farmasi-obat',
+      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil', 'rad-bhp',
+      'kasir', 'admin', 'karyawan', 'running-text', 'musik', 'pengaturan', 'keuangan-sharing', 'gaji-karyawan', 'pengeluaran-bulanan', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
@@ -329,6 +331,20 @@ function defaultPemeriksaanKesan() {
   return [];
 }
 
+function BHP(nama, satuan, harga, stok, stokMin) {
+  return { id: uid('bhp'), nama, satuan, harga, stok, stokMin, tglPenggantian: '', aktif: true };
+}
+
+function defaultBhpRadiologi() {
+  return [
+    BHP('Film 24', 'Lembar', 15000, 50, 10),
+    BHP('Film 30', 'Lembar', 20000, 50, 10),
+    BHP('Film 35', 'Lembar', 25000, 50, 10),
+    BHP('Dev (Developer)', 'Liter', 120000, 10, 3),
+    BHP('Fix (Fixer)', 'Liter', 120000, 10, 3)
+  ];
+}
+
 function defaultDokterRadiologi() {
   return [
     { id: uid('drsp'), nama: 'dr. Andi Wijaya, Sp.Rad', aktif: true },
@@ -464,6 +480,20 @@ const DB = {
     saveJSON(DB_KEYS.MUSIK, list);
   },
 
+  getBhpRadiologi() {
+    return loadJSON(DB_KEYS.RAD_BHP, defaultBhpRadiologi());
+  },
+  saveBhpRadiologi(list) {
+    saveJSON(DB_KEYS.RAD_BHP, list);
+  },
+
+  getPengeluaranBulanan() {
+    return loadJSON(DB_KEYS.PENGELUARAN_BULANAN, []);
+  },
+  savePengeluaranBulanan(list) {
+    saveJSON(DB_KEYS.PENGELUARAN_BULANAN, list);
+  },
+
   getRegistrasiRadiologi() {
     return loadJSON(DB_KEYS.RAD_REG, []);
   },
@@ -570,6 +600,8 @@ const DB = {
     if (!hasKey(DB_KEYS.GAJI_KARYAWAN)) this.saveGajiKaryawan([]);
     if (!hasKey(DB_KEYS.RUNNING_TEXT)) this.saveRunningText([]);
     if (!hasKey(DB_KEYS.MUSIK)) this.saveMusik([]);
+    if (!hasKey(DB_KEYS.RAD_BHP)) this.saveBhpRadiologi(defaultBhpRadiologi());
+    if (!hasKey(DB_KEYS.PENGELUARAN_BULANAN)) this.savePengeluaranBulanan([]);
     this.migrate();
   },
 

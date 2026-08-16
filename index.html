@@ -81,6 +81,7 @@
           <button class="navbtn" data-view="rad-data-sekunder">Data Sekunder</button>
           <button class="navbtn" data-view="rad-cetak-universal">Cetak Universal</button>
           <button class="navbtn" data-view="rad-print-hasil">Print Hasil Radiologi</button>
+          <button class="navbtn" data-view="rad-bhp">BHP</button>
         </div>
       </div>
       <div class="nav-dropdown">
@@ -116,6 +117,7 @@
         <div class="nav-dropdown-menu">
           <button class="navbtn" data-view="keuangan-sharing">Sharing</button>
           <button class="navbtn" data-view="gaji-karyawan">Gaji Karyawan</button>
+          <button class="navbtn" data-view="pengeluaran-bulanan">Pengeluaran Perbulan</button>
         </div>
       </div>
     </div>
@@ -913,6 +915,43 @@
     </div>
   </section>
 
+  <!-- ======================= VIEW: PENGELUARAN PERBULAN ======================= -->
+  <section id="view-pengeluaran-bulanan" class="view">
+    <div class="view-header">
+      <h2>Pengeluaran Perbulan</h2>
+    </div>
+    <form id="formPengeluaranBulanan" class="card form-grid">
+      <input type="hidden" id="fPengeluaranId">
+      <div class="form-row"><label>Nama Karyawan</label><select id="fPengeluaranKaryawan"></select></div>
+      <div class="form-row"><label>Bulan</label><input type="month" id="fPengeluaranBulan" required></div>
+      <div class="form-row"><label>Jumlah Gaji</label><input type="number" id="fPengeluaranJumlah" min="0" step="1000" value="0"></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="btnSimpanPengeluaran">Tambah</button>
+        <button type="button" class="btn btn-light" id="btnBatalEditPengeluaran" style="display:none;">Batal Edit</button>
+      </div>
+    </form>
+
+    <div class="datasek-summary">
+      <div class="datasek-stat">
+        <div class="stat-label">Total Gaji</div>
+        <div class="stat-value" id="pengeluaranTotalGaji">Rp 0</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="cariPengeluaran" placeholder="Cari nama karyawan...">
+      <select id="pengeluaranAdminSelect" title="Admin yang bertanggung jawab — namanya akan tampil di laporan cetak"></select>
+      <button type="button" class="btn btn-primary" id="btnCetakPengeluaran">Cetak</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama Karyawan</th><th>Jumlah Gaji</th><th>Aksi</th></tr></thead>
+        <tbody id="tblPengeluaranBody"></tbody>
+      </table>
+      <div id="emptyPengeluaran" class="empty-state" style="display:none">Belum ada data pengeluaran.</div>
+    </div>
+  </section>
+
   <!-- ======================= VIEW: PEMERIKSAAN (PEMERIKSAAN / PENYAKIT / KESAN) ======================= -->
   <section id="view-rad-pemeriksaan-catalog" class="view">
     <div class="view-header">
@@ -1044,6 +1083,41 @@
     </div>
   </section>
 
+  <!-- ======================= VIEW: BHP RADIOLOGI ======================= -->
+  <section id="view-rad-bhp" class="view">
+    <div class="view-header">
+      <h2>BHP (Bahan Habis Pakai)</h2>
+      <div class="view-header-actions">
+        <button type="button" class="btn btn-primary" id="btnCetakBhp">Cetak</button>
+        <button class="btn btn-light" data-back="rad-daftar">&larr; Kembali</button>
+      </div>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newBhpNama" placeholder="Nama BHP (mis. Film 24, Dev, Fix)...">
+      <input type="text" id="newBhpSatuan" placeholder="Satuan (lembar, liter...)">
+      <input type="number" id="newBhpHarga" placeholder="Harga">
+      <input type="number" id="newBhpStok" placeholder="Stok Awal">
+      <input type="number" id="newBhpStokMin" placeholder="Stok Minimum">
+      <input type="date" id="newBhpTglPenggantian" title="Tanggal Penggantian (khusus Dev/Fix)">
+      <button class="btn btn-primary" id="btnAddBhp">Tambah</button>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="cariBhp" placeholder="Cari nama BHP...">
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Nama</th><th>Satuan</th><th>Harga</th><th>Stok</th><th>Stok Minimum</th>
+            <th>Tgl. Penggantian</th><th>Aktif</th><th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblBhpBody"></tbody>
+      </table>
+      <div id="emptyBhp" class="empty-state" style="display:none">Tidak ada data.</div>
+    </div>
+  </section>
+
   <!-- ======================= VIEW: MASTER RADIOGRAFER ======================= -->
   <section id="view-rad-master-radiografer" class="view">
     <div class="view-header">
@@ -1147,6 +1221,7 @@
         <option value="Mandiri">Mandiri</option>
       </select>
       <input type="text" id="newKaryawanRekening" placeholder="No. Rekening...">
+      <input type="number" id="newKaryawanGaji" placeholder="Jumlah Gaji" min="0" step="1000">
       <button class="btn btn-primary" id="btnAddKaryawan">Tambah</button>
     </div>
     <div class="toolbar">
@@ -1154,7 +1229,7 @@
     </div>
     <div class="table-wrap">
       <table class="tbl">
-        <thead><tr><th>Nama</th><th>No. HP</th><th>Bank</th><th>No. Rekening</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Nama</th><th>No. HP</th><th>Bank</th><th>No. Rekening</th><th>Jumlah Gaji</th><th>Aktif</th><th>Aksi</th></tr></thead>
         <tbody id="tblKaryawanBody"></tbody>
       </table>
       <div id="emptyKaryawan" class="empty-state" style="display:none">Tidak ada data.</div>

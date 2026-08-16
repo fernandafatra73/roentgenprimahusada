@@ -475,6 +475,89 @@ function printSlipGaji(gaji, karyawan, settings, adminNama) {
   openPrintWindow(html, true);
 }
 
+/* ============================ BHP RADIOLOGI (STOK) ============================ */
+
+function buildBhpRadiologiHTML(list, settings) {
+  const rowsHTML = list.map(b => {
+    const menipis = (Number(b.stok) || 0) <= (Number(b.stokMin) || 0);
+    return `<tr>
+      <td>${escapeHTML(b.nama)}</td>
+      <td>${escapeHTML(b.satuan || '-')}</td>
+      <td class="rp-value">${formatRupiah(b.harga)}</td>
+      <td${menipis ? ' style="color:#b30000; font-weight:700;"' : ''}>${b.stok}${menipis ? ' (Menipis)' : ''}</td>
+      <td>${b.stokMin}</td>
+      <td>${b.tglPenggantian ? formatTanggal(b.tglPenggantian) : '-'}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" class="empty-state">Tidak ada data.</td></tr>`;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Laporan Stok BHP Radiologi</title>
+  ${printBaseStyles()}
+  <style>.rp-value { color: #0b3d91; font-weight: 700; }</style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">LAPORAN STOK BHP (BAHAN HABIS PAKAI) RADIOLOGI</div>
+    <table class="hasil">
+      <thead><tr><th>Nama</th><th>Satuan</th><th>Harga</th><th>Stok</th><th>Stok Minimum</th><th>Tgl. Penggantian</th></tr></thead>
+      <tbody>${rowsHTML}</tbody>
+    </table>
+    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')}</div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printBhpRadiologi(list, settings) {
+  const html = buildBhpRadiologiHTML(list, settings);
+  openPrintWindow(html, true);
+}
+
+/* ============================ PENGELUARAN PERBULAN ============================ */
+
+function buildPengeluaranBulananHTML(rows, totalGaji, settings, adminNama, periodeLabel) {
+  const rowsHTML = rows.map(r => `
+    <tr>
+      <td>${escapeHTML(r.namaKaryawan)}</td>
+      <td>${escapeHTML(formatPeriode(r.bulan))}</td>
+      <td class="rp-value">${formatRupiah(r.jumlah)}</td>
+    </tr>`).join('') || `<tr><td colspan="3" class="empty-state">Tidak ada data.</td></tr>`;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Laporan Pengeluaran Perbulan</title>
+  ${printBaseStyles()}
+  <style>
+    table.hasil tfoot td { border: 1px solid #999; padding: 5px 8px; }
+    .rp-value { color: #0b3d91; font-weight: 700; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">LAPORAN PENGELUARAN GAJI PERBULAN</div>
+    ${periodeLabel ? `<div style="text-align:left; font-size:12.5px; margin:-8px 0 14px;">${escapeHTML(periodeLabel)}</div>` : ''}
+    <table class="hasil">
+      <thead><tr><th>Nama Karyawan</th><th>Bulan</th><th>Jumlah Gaji</th></tr></thead>
+      <tbody>${rowsHTML}</tbody>
+      <tfoot><tr><td colspan="2" style="text-align:right; font-weight:700;">Total Gaji</td><td class="rp-value">${formatRupiah(totalGaji)}</td></tr></tfoot>
+    </table>
+    <div class="footer-sign">
+      <div class="sign-box">
+        <div>Mengetahui,</div>
+        <div class="sign-space"></div>
+        <div><strong>${escapeHTML(adminNama || settings.penanggungJawab)}</strong></div>
+      </div>
+    </div>
+    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')}</div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printPengeluaranBulanan(rows, totalGaji, settings, adminNama, periodeLabel) {
+  const html = buildPengeluaranBulananHTML(rows, totalGaji, settings, adminNama, periodeLabel);
+  openPrintWindow(html, true);
+}
+
 /* ============================ DATA SEKUNDER: KWITANSI ============================ */
 
 function buildKwitansiRadHTML(reg, ctx) {
