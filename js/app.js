@@ -3251,14 +3251,15 @@ function renderSharingMingguanHasil(scope, dari, sampai, dokterIdFilter) {
       <td>${escapeHTML(nama)}</td>
       <td>${agg[did].count}</td>
       <td>${formatRupiah(agg[did].total)}</td>
-      <td>${formatRupiah(nominal)}</td>
+      <td><input type="number" class="sharing-persen-input" value="${persen}" min="0" max="100" step="0.1" style="width:70px;"> %</td>
+      <td class="sharing-nominal-cell">${formatRupiah(nominal)}</td>
       <td class="aksi-cell"></td>
     </tr>`;
   }).join('');
 
   hasilEl.innerHTML = `
     <table class="tbl">
-      <thead><tr><th>Dokter Pengirim</th><th>Jumlah Pasien</th><th>Total Pendapatan</th><th>Nominal Sharing</th><th>Aksi</th></tr></thead>
+      <thead><tr><th>Dokter Pengirim</th><th>Jumlah Pasien</th><th>Total Pendapatan</th><th>% Sharing</th><th>Nominal Sharing</th><th>Aksi</th></tr></thead>
       <tbody>${rowsHTML}</tbody>
     </table>
   `;
@@ -3267,11 +3268,30 @@ function renderSharingMingguanHasil(scope, dari, sampai, dokterIdFilter) {
 
   hasilEl.querySelectorAll('tr[data-dokterid]').forEach(tr => {
     const did = tr.dataset.dokterid;
-    const d = dokterList.find(x => x.id === did);
-    const persen = d && d.sharingPersen != null ? d.sharingPersen : 0;
-    tr.querySelector('.aksi-cell').appendChild(makeBtn('Cetak', 'btn-light', () => {
+    const aksiCell = tr.querySelector('.aksi-cell');
+    aksiCell.appendChild(makeBtn('Cetak', 'btn-light', () => {
+      const persen = Number(tr.querySelector('.sharing-persen-input').value) || 0;
       cetakLaporanSharingDokter(did, list, persen, periodeLabel, $('#sharingMingguanAdmin').value);
     }));
+    aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => {
+      const persen = Number(tr.querySelector('.sharing-persen-input').value) || 0;
+      openEditSharingModal(did, list, persen, periodeLabel, $('#sharingMingguanAdmin').value);
+    }));
+  });
+
+  hasilEl.querySelectorAll('.sharing-persen-input').forEach(inp => {
+    inp.addEventListener('change', (e) => {
+      const tr = e.target.closest('tr');
+      const did = tr.dataset.dokterid;
+      const persen = Number(e.target.value) || 0;
+      const dList = DB.getDokter();
+      const d = dList.find(x => x.id === did);
+      if (d) { d.sharingPersen = persen; DB.saveDokter(dList); }
+      e.target.setAttribute('value', String(persen));
+      const nominal = agg[did].total * persen / 100;
+      tr.querySelector('.sharing-nominal-cell').textContent = formatRupiah(nominal);
+      showToast('Persentase sharing disimpan.');
+    });
   });
 }
 
@@ -3738,7 +3758,126 @@ $('#btnAddAdmin').addEventListener('click', () => {
 
 $('#cariAdmin').addEventListener('input', renderAdmin);
 
+/* Pimpinan yang tanda tangannya dipakai di slip gaji karyawan (lihat
+   populatePimpinanSelect & #gajiPimpinanSelect). */
+function populatePimpinanSelect(selId) {
+  const sel = $(selId);
+  const cur = sel.value;
+  const list = DB.getPimpinanTtd();
+  sel.innerHTML = list.length
+    ? list.map(p => `<option value="${escapeHTML(p.nama)}">${escapeHTML(p.nama)}</option>`).join('')
+    : '<option value="">(Belum ada pimpinan)</option>';
+  if (cur && list.some(p => p.nama === cur)) sel.value = cur;
+}
+
+/* =============================== PIMPINAN TTD =============================== */
+
+function renderPimpinan() {
+  const q = ($('#cariPimpinan').value || '').toLowerCase().trim();
+  const list = DB.getPimpinanTtd();
+  const filtered = list.filter(p => !q || p.nama.toLowerCase().includes(q));
+  const tbody = $('#tblPimpinanBody');
+  tbody.innerHTML = '';
+  $('#emptyPimpinan').style.display = filtered.length ? 'none' : 'block';
+  filtered.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="inline-edit" value="${escapeHTML(p.nama)}" readonly></td>
+      <td><input type="text" class="inline-edit" value="${escapeHTML(p.hp || '')}" readonly></td>
+      <td class="aksi-cell"></td>
+    `;
+    const [namaCell, hpCell, aksiCell] = tr.children;
+    const namaInput = namaCell.querySelector('input');
+    const hpInput = hpCell.querySelector('input');
+    namaInput.addEventListener('change', (e) => {
+      p.nama = e.target.value.trim();
+      DB.savePimpinanTtd(list);
+      showToast('Pimpinan diperbarui.');
+    });
+    hpInput.addEventListener('change', (e) => {
+      p.hp = e.target.value.trim();
+      DB.savePimpinanTtd(list);
+      showToast('Pimpinan diperbarui.');
+    });
+    aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => printPimpinanTtd(p, DB.getSettings())));
+    const editBtn = makeBtn('Edit', 'btn-light', () => {
+      const nowEditing = namaInput.readOnly;
+      namaInput.readOnly = !nowEditing;
+      hpInput.readOnly = !nowEditing;
+      editBtn.textContent = nowEditing ? 'Selesai' : 'Edit';
+      if (nowEditing) namaInput.focus();
+    });
+    aksiCell.appendChild(editBtn);
+    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+      const ok = await confirmAsync(`Hapus pimpinan "${p.nama}"?`);
+      if (!ok) return;
+      DB.savePimpinanTtd(list.filter(x => x.id !== p.id));
+      renderPimpinan();
+      showToast('Pimpinan dihapus.');
+    }));
+    tbody.appendChild(tr);
+  });
+}
+
+$('#btnAddPimpinan').addEventListener('click', () => {
+  const namaInput = $('#newPimpinanNama');
+  const hpInput = $('#newPimpinanHp');
+  const nama = namaInput.value.trim();
+  if (!nama) { showToast('Nama pimpinan tidak boleh kosong.'); return; }
+  const list = DB.getPimpinanTtd();
+  list.push({ id: uid('pmp'), nama, hp: hpInput.value.trim() });
+  DB.savePimpinanTtd(list);
+  namaInput.value = '';
+  hpInput.value = '';
+  renderPimpinan();
+  showToast('Pimpinan ditambahkan.');
+});
+
+$('#cariPimpinan').addEventListener('input', renderPimpinan);
+
 /* =============================== KARYAWAN =================================== */
+
+/* Foto karyawan (3x3) ditampilkan/diunggah lewat panel di sebelah tombol
+   Cetak — klik nama karyawan di tabel untuk memilih siapa yang fotonya
+   sedang ditampilkan di panel tersebut. */
+let karyawanFotoSelectedId = null;
+
+function renderKaryawanFotoPanel() {
+  const box = $('#karyawanFotoBox');
+  const namaEl = $('#karyawanFotoNama');
+  const k = karyawanFotoSelectedId ? DB.getKaryawan().find(x => x.id === karyawanFotoSelectedId) : null;
+  if (!k) {
+    box.innerHTML = '<span class="foto-placeholder">Pilih nama<br>di tabel</span>';
+    namaEl.textContent = '-';
+    return;
+  }
+  box.innerHTML = k.foto
+    ? `<img src="${k.foto}" alt="Foto ${escapeHTML(k.nama)}">`
+    : '<span class="foto-placeholder">+ Foto<br>3x3</span>';
+  namaEl.textContent = k.nama;
+}
+
+$('#karyawanFotoBox').addEventListener('click', () => {
+  if (!karyawanFotoSelectedId) { showToast('Pilih nama karyawan di tabel terlebih dahulu.'); return; }
+  $('#karyawanFotoInput').click();
+});
+
+$('#karyawanFotoInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !karyawanFotoSelectedId) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const list = DB.getKaryawan();
+    const k = list.find(x => x.id === karyawanFotoSelectedId);
+    if (!k) return;
+    k.foto = reader.result;
+    DB.saveKaryawan(list);
+    renderKaryawanFotoPanel();
+    showToast('Foto karyawan diperbarui.');
+  };
+  reader.readAsDataURL(file);
+});
 
 function renderKaryawan() {
   const q = ($('#cariKaryawan').value || '').toLowerCase().trim();
@@ -3747,6 +3886,8 @@ function renderKaryawan() {
   const tbody = $('#tblKaryawanBody');
   tbody.innerHTML = '';
   $('#emptyKaryawan').style.display = filtered.length ? 'none' : 'block';
+  const totalGaji = filtered.reduce((s, k) => s + (Number(k.gaji) || 0), 0);
+  $('#karyawanTotalGaji').textContent = formatRupiah(totalGaji);
   const bankOptions = ['BCA', 'BRI', 'Mandiri'];
   filtered.forEach(k => {
     const tr = document.createElement('tr');
@@ -3760,17 +3901,24 @@ function renderKaryawan() {
       <td><input type="text" class="inline-edit" value="${escapeHTML(k.rekening || '')}" readonly></td>
       <td><input type="number" class="inline-edit" value="${k.gaji || 0}" readonly></td>
       <td class="center"><input type="checkbox" ${k.aktif !== false ? 'checked' : ''}></td>
+      <td><button type="button" class="foto-select-btn">${escapeHTML(k.nama)}</button></td>
       <td class="aksi-cell"></td>
     `;
-    const [namaCell, hpCell, bankCell, rekeningCell, gajiCell, aktifCell, aksiCell] = tr.children;
+    const [namaCell, hpCell, bankCell, rekeningCell, gajiCell, aktifCell, fotoCell, aksiCell] = tr.children;
     const namaInput = namaCell.querySelector('input');
     const hpInput = hpCell.querySelector('input');
     const bankSelect = bankCell.querySelector('select');
     const rekeningInput = rekeningCell.querySelector('input');
     const gajiInput = gajiCell.querySelector('input');
+    fotoCell.querySelector('.foto-select-btn').addEventListener('click', () => {
+      karyawanFotoSelectedId = k.id;
+      renderKaryawanFotoPanel();
+    });
     namaInput.addEventListener('change', (e) => {
       k.nama = e.target.value.trim();
       DB.saveKaryawan(list);
+      fotoCell.querySelector('.foto-select-btn').textContent = k.nama;
+      if (karyawanFotoSelectedId === k.id) renderKaryawanFotoPanel();
       showToast('Karyawan diperbarui.');
     });
     hpInput.addEventListener('change', (e) => {
@@ -3791,6 +3939,7 @@ function renderKaryawan() {
     gajiInput.addEventListener('change', (e) => {
       k.gaji = Number(e.target.value) || 0;
       DB.saveKaryawan(list);
+      $('#karyawanTotalGaji').textContent = formatRupiah(filtered.reduce((s, x) => s + (Number(x.gaji) || 0), 0));
       showToast('Karyawan diperbarui.');
     });
     aktifCell.querySelector('input').addEventListener('change', (e) => {
@@ -3812,12 +3961,20 @@ function renderKaryawan() {
       const ok = await confirmAsync(`Hapus karyawan "${k.nama}"?`);
       if (!ok) return;
       DB.saveKaryawan(list.filter(x => x.id !== k.id));
+      if (karyawanFotoSelectedId === k.id) karyawanFotoSelectedId = null;
       renderKaryawan();
+      renderKaryawanFotoPanel();
       showToast('Karyawan dihapus.');
     }));
     tbody.appendChild(tr);
   });
 }
+
+$('#btnCetakKaryawan').addEventListener('click', () => {
+  const q = ($('#cariKaryawan').value || '').toLowerCase().trim();
+  const list = DB.getKaryawan().filter(k => !q || k.nama.toLowerCase().includes(q));
+  printKaryawan(list, DB.getSettings());
+});
 
 $('#btnAddKaryawan').addEventListener('click', () => {
   const namaInput = $('#newKaryawanNama');
@@ -4052,12 +4209,14 @@ function renderGaji() {
   const tbody = $('#tblGajiBody');
   tbody.innerHTML = '';
   $('#emptyGaji').style.display = list.length ? 'none' : 'block';
+  let totalSemua = 0;
   list.forEach(g => {
     const k = karyawanList.find(x => x.id === g.karyawanId);
     const gajiPokok = Number(g.gajiPokok) || 0;
     const tunjangan = Number(g.tunjangan) || 0;
     const potongan = Number(g.potongan) || 0;
     const total = gajiPokok + tunjangan - potongan;
+    totalSemua += total;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHTML(k ? k.nama : '(karyawan dihapus)')}</td>
@@ -4083,7 +4242,7 @@ function renderGaji() {
       $('#btnBatalEditGaji').style.display = '';
       window.scrollTo(0, 0);
     }));
-    aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => printSlipGaji(g, k, DB.getSettings(), $('#gajiAdminSelect').value)));
+    aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => printSlipGaji(g, k, DB.getSettings(), $('#gajiPimpinanSelect').value)));
     aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
       const ok = await confirmAsync(`Hapus data gaji "${k ? k.nama : ''}" periode ${formatPeriode(g.periode)}?`);
       if (!ok) return;
@@ -4093,6 +4252,7 @@ function renderGaji() {
     }));
     tbody.appendChild(tr);
   });
+  $('#gajiTotalSemua').textContent = formatRupiah(totalSemua);
 }
 
 function batalEditGaji() {
@@ -4270,6 +4430,190 @@ $('#btnCetakPengeluaran').addEventListener('click', () => {
   const totalGaji = rows.reduce((s, r) => s + r.jumlah, 0);
   const periodeLabel = `Bulan: ${formatPeriode(bulanIni)}`;
   printPengeluaranBulanan(rows, totalGaji, DB.getSettings(), $('#pengeluaranAdminSelect').value, periodeLabel);
+});
+
+/* =============================== DATA BESAR (KEUANGAN) =============================== */
+/* Ringkasan transaksi gabungan: pemasukan dari registrasi Lab & Radiologi,
+   pengeluaran dari Gaji Karyawan & Pengeluaran Bulanan. Cetak/Edit/Hapus tiap
+   baris selalu memakai aksi asli dari halaman sumber datanya masing-masing,
+   supaya validasi & data terkait (kwitansi, slip gaji, dst) tetap konsisten,
+   dan otomatis ikut data terbaru tiap kali dibuka karena dibaca langsung dari
+   DB.getX() (bukan salinan statis). */
+
+function kumpulkanDataBesar() {
+  const rows = [];
+  const karyawanList = DB.getKaryawan();
+
+  DB.getRegistrasi().forEach(r => {
+    rows.push({
+      id: r.id, tipe: 'lab', tanggal: r.tanggal || '', sumber: 'Laboratorium',
+      keterangan: `Pendaftaran Lab — ${r.nama || '-'} (${r.noReg || '-'})`,
+      nominal: Number(r.totalHarga) || 0, jenis: 'masuk'
+    });
+  });
+  DB.getRegistrasiRadiologi().forEach(r => {
+    rows.push({
+      id: r.id, tipe: 'radiologi', tanggal: r.tanggal || '', sumber: 'Radiologi',
+      keterangan: `Pendaftaran Radiologi — ${r.nama || '-'} (${r.noReg || '-'})`,
+      nominal: Number(r.totalHarga) || 0, jenis: 'masuk'
+    });
+  });
+  DB.getGajiKaryawan().forEach(g => {
+    const k = karyawanList.find(x => x.id === g.karyawanId);
+    const total = (Number(g.gajiPokok) || 0) + (Number(g.tunjangan) || 0) - (Number(g.potongan) || 0);
+    rows.push({
+      id: g.id, tipe: 'gaji', tanggal: (g.periode || '') + '-01', sumber: 'Gaji Karyawan',
+      keterangan: `Gaji ${k ? k.nama : '(karyawan dihapus)'} — ${formatPeriode(g.periode)}`,
+      nominal: total, jenis: 'keluar'
+    });
+  });
+  DB.getPengeluaranBulanan().forEach(p => {
+    const k = karyawanList.find(x => x.id === p.karyawanId);
+    rows.push({
+      id: p.id, tipe: 'pengeluaran', tanggal: (p.bulan || '') + '-01', sumber: 'Pengeluaran Bulanan',
+      keterangan: `Pengeluaran ${k ? k.nama : '(karyawan dihapus)'} — ${formatPeriode(p.bulan)}`,
+      nominal: Number(p.jumlah) || 0, jenis: 'keluar'
+    });
+  });
+  return rows;
+}
+
+function gotoEditGaji(gajiId) {
+  showView('gaji-karyawan');
+  refreshView('gaji-karyawan');
+  const g = DB.getGajiKaryawan().find(x => x.id === gajiId);
+  if (!g) return;
+  editingGajiId = g.id;
+  $('#fGajiId').value = g.id;
+  $('#fGajiKaryawan').value = g.karyawanId;
+  $('#fGajiPeriode').value = g.periode;
+  $('#fGajiPokok').value = g.gajiPokok || 0;
+  $('#fGajiTunjangan').value = g.tunjangan || 0;
+  $('#fGajiPotongan').value = g.potongan || 0;
+  $('#fGajiCatatan').value = g.catatan || '';
+  $('#btnSimpanGaji').textContent = 'Update';
+  $('#btnBatalEditGaji').style.display = '';
+}
+
+function gotoEditPengeluaran(id) {
+  showView('pengeluaran-bulanan');
+  refreshView('pengeluaran-bulanan');
+  const p = DB.getPengeluaranBulanan().find(x => x.id === id);
+  if (!p) return;
+  editingPengeluaranId = p.id;
+  $('#fPengeluaranId').value = p.id;
+  $('#fPengeluaranKaryawan').value = p.karyawanId;
+  $('#fPengeluaranBulan').value = p.bulan;
+  $('#fPengeluaranJumlah').value = p.jumlah || 0;
+  $('#btnSimpanPengeluaran').textContent = 'Update';
+  $('#btnBatalEditPengeluaran').style.display = '';
+}
+
+function filteredDataBesar() {
+  const dari = $('#dataBesarDari').value;
+  const sampai = $('#dataBesarSampai').value;
+  const jenisFilter = $('#dataBesarJenis').value;
+  const q = ($('#cariDataBesar').value || '').toLowerCase().trim();
+  const sumberAktif = $all('.dataBesarSumber').filter(c => c.checked).map(c => c.value);
+  return kumpulkanDataBesar()
+    .filter(row => sumberAktif.includes(row.tipe))
+    .filter(row => !dari || row.tanggal >= dari)
+    .filter(row => !sampai || row.tanggal <= sampai)
+    .filter(row => !jenisFilter || row.jenis === jenisFilter)
+    .filter(row => !q || row.keterangan.toLowerCase().includes(q))
+    .sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || ''));
+}
+
+function renderDataBesar() {
+  const rows = filteredDataBesar();
+  const tbody = $('#tblDataBesarBody');
+  tbody.innerHTML = '';
+  $('#emptyDataBesar').style.display = rows.length ? 'none' : 'block';
+
+  let totalMasuk = 0, totalKeluar = 0;
+  rows.forEach(row => {
+    if (row.jenis === 'masuk') totalMasuk += row.nominal; else totalKeluar += row.nominal;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row.tanggal ? formatTanggal(row.tanggal) : '-'}</td>
+      <td>${escapeHTML(row.sumber)}</td>
+      <td>${escapeHTML(row.keterangan)}</td>
+      <td><span class="badge badge-${row.jenis === 'masuk' ? 'selesai' : 'belum'}">${row.jenis === 'masuk' ? 'Masuk' : 'Keluar'}</span></td>
+      <td>${row.jenis === 'keluar' ? '- ' : ''}${formatRupiah(row.nominal)}</td>
+      <td class="aksi-cell"></td>
+    `;
+    const aksiCell = tr.querySelector('.aksi-cell');
+
+    if (row.tipe === 'lab') {
+      aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => {
+        const reg = DB.getRegistrasi().find(x => x.id === row.id);
+        if (reg) printKwitansiLab(reg, Object.assign({}, printCtx(), { adminNama: '' }));
+      }));
+      aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openForm(row.id)));
+      aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => { await hapusRegistrasi(row.id); renderDataBesar(); }));
+    } else if (row.tipe === 'radiologi') {
+      aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => {
+        const reg = DB.getRegistrasiRadiologi().find(x => x.id === row.id);
+        if (reg) printKwitansiRad(reg, Object.assign({}, printCtxRad(), { adminNama: '' }));
+      }));
+      aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openFormRad(row.id)));
+      aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => { await hapusRegistrasiRad(row.id); renderDataBesar(); }));
+    } else if (row.tipe === 'gaji') {
+      aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => {
+        const g = DB.getGajiKaryawan().find(x => x.id === row.id);
+        const k = g ? DB.getKaryawan().find(x => x.id === g.karyawanId) : null;
+        if (g) printSlipGaji(g, k, DB.getSettings(), '');
+      }));
+      aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => gotoEditGaji(row.id)));
+      aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+        const ok = await confirmAsync(`Hapus data: "${row.keterangan}"?`);
+        if (!ok) return;
+        DB.saveGajiKaryawan(DB.getGajiKaryawan().filter(x => x.id !== row.id));
+        showToast('Data gaji dihapus.');
+        renderDataBesar();
+      }));
+    } else if (row.tipe === 'pengeluaran') {
+      aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => {
+        const p = DB.getPengeluaranBulanan().find(x => x.id === row.id);
+        const k = p ? DB.getKaryawan().find(x => x.id === p.karyawanId) : null;
+        if (p) printPengeluaranBulanan(
+          [{ namaKaryawan: k ? k.nama : '(karyawan dihapus)', bulan: p.bulan, jumlah: Number(p.jumlah) || 0 }],
+          Number(p.jumlah) || 0, DB.getSettings(), '', `Bulan: ${formatPeriode(p.bulan)}`
+        );
+      }));
+      aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => gotoEditPengeluaran(row.id)));
+      aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+        const ok = await confirmAsync(`Hapus data: "${row.keterangan}"?`);
+        if (!ok) return;
+        DB.savePengeluaranBulanan(DB.getPengeluaranBulanan().filter(x => x.id !== row.id));
+        showToast('Data pengeluaran dihapus.');
+        renderDataBesar();
+      }));
+    }
+
+    tbody.appendChild(tr);
+  });
+
+  $('#dataBesarTotalMasuk').textContent = formatRupiah(totalMasuk);
+  $('#dataBesarTotalKeluar').textContent = formatRupiah(totalKeluar);
+  $('#dataBesarSaldo').textContent = formatRupiah(totalMasuk - totalKeluar);
+}
+
+$('#formDataBesar').addEventListener('submit', (e) => {
+  e.preventDefault();
+  renderDataBesar();
+});
+$all('.dataBesarSumber').forEach(cb => cb.addEventListener('change', renderDataBesar));
+$('#cariDataBesar').addEventListener('input', renderDataBesar);
+
+$('#btnCetakDataBesar').addEventListener('click', () => {
+  const rows = filteredDataBesar();
+  const totalMasuk = rows.filter(r => r.jenis === 'masuk').reduce((s, r) => s + r.nominal, 0);
+  const totalKeluar = rows.filter(r => r.jenis === 'keluar').reduce((s, r) => s + r.nominal, 0);
+  const dari = $('#dataBesarDari').value;
+  const sampai = $('#dataBesarSampai').value;
+  const periodeLabel = (dari || sampai) ? `Periode: ${dari ? formatTanggal(dari) : '(semua)'} s/d ${sampai ? formatTanggal(sampai) : '(semua)'}` : '';
+  printDataBesar(rows, totalMasuk, totalKeluar, DB.getSettings(), periodeLabel);
 });
 
 /* =============================== PENGATURAN ================================ */
@@ -4595,11 +4939,13 @@ function refreshView(view) {
   else if (view === 'rad-ai') populateAiRadiologRegSelect();
   else if (view === 'kasir') { populateKasirAdminSelect(); renderKasirList(); }
   else if (view === 'admin') renderAdmin();
-  else if (view === 'karyawan') renderKaryawan();
+  else if (view === 'pimpinan-ttd') renderPimpinan();
+  else if (view === 'karyawan') { renderKaryawan(); renderKaryawanFotoPanel(); }
   else if (view === 'running-text') renderRunningText();
   else if (view === 'musik') renderMusik();
-  else if (view === 'gaji-karyawan') { isiSelectKaryawanGaji(); renderGaji(); populateAdminSelect('#gajiAdminSelect'); }
+  else if (view === 'gaji-karyawan') { isiSelectKaryawanGaji(); renderGaji(); populatePimpinanSelect('#gajiPimpinanSelect'); }
   else if (view === 'pengeluaran-bulanan') { isiSelectKaryawanPengeluaran(); renderPengeluaranBulanan(); populateAdminSelect('#pengeluaranAdminSelect'); }
+  else if (view === 'data-besar') renderDataBesar();
   else if (view === 'rad-master-radiografer') renderRadiografer();
   else if (view === 'rad-master-dokter-sp') renderDokterSp();
   else if (view === 'pengaturan') renderPengaturan();

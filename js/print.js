@@ -513,6 +513,130 @@ function printBhpRadiologi(list, settings) {
   openPrintWindow(html, true);
 }
 
+/* ============================ KARYAWAN ============================ */
+
+function buildKaryawanHTML(list, settings) {
+  const totalGaji = list.reduce((s, k) => s + (Number(k.gaji) || 0), 0);
+  const rowsHTML = list.map(k => `
+    <tr>
+      <td>${escapeHTML(k.nama)}</td>
+      <td>${escapeHTML(k.hp || '-')}</td>
+      <td>${escapeHTML(k.bank || '-')}</td>
+      <td>${escapeHTML(k.rekening || '-')}</td>
+      <td class="rp-value">${formatRupiah(k.gaji)}</td>
+      <td>${k.aktif !== false ? 'Aktif' : 'Nonaktif'}</td>
+    </tr>`).join('') || `<tr><td colspan="6" class="empty-state">Tidak ada data.</td></tr>`;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Data Karyawan</title>
+  ${printBaseStyles()}
+  <style>
+    table.hasil tfoot td { border: 1px solid #999; padding: 5px 8px; }
+    .rp-value { color: #0b3d91; font-weight: 700; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">DATA KARYAWAN</div>
+    <table class="hasil">
+      <thead><tr><th>Nama</th><th>No. HP</th><th>Bank</th><th>No. Rekening</th><th>Jumlah Gaji</th><th>Status</th></tr></thead>
+      <tbody>${rowsHTML}</tbody>
+      <tfoot><tr><td colspan="4" style="text-align:right; font-weight:700;">Total Jumlah Gaji</td><td class="rp-value">${formatRupiah(totalGaji)}</td><td></td></tr></tfoot>
+    </table>
+    <div class="footer-sign">
+      <div class="sign-box">
+        <div>Mengetahui,</div>
+        <div class="sign-space"></div>
+        <div><strong>${escapeHTML(settings.penanggungJawab || '')}</strong></div>
+      </div>
+    </div>
+    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')}</div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printKaryawan(list, settings) {
+  const html = buildKaryawanHTML(list, settings);
+  openPrintWindow(html, true);
+}
+
+/* ============================ KEUANGAN: DATA BESAR (GABUNGAN) ============================ */
+
+function buildDataBesarHTML(rows, totalMasuk, totalKeluar, settings, periodeLabel) {
+  const rowsHTML = rows.map(r => `
+    <tr>
+      <td>${r.tanggal ? formatTanggal(r.tanggal) : '-'}</td>
+      <td>${escapeHTML(r.sumber)}</td>
+      <td>${escapeHTML(r.keterangan)}</td>
+      <td>${r.jenis === 'masuk' ? 'Masuk' : 'Keluar'}</td>
+      <td class="rp-value">${r.jenis === 'keluar' ? '- ' : ''}${formatRupiah(r.nominal)}</td>
+    </tr>`).join('') || `<tr><td colspan="5" class="empty-state">Tidak ada data.</td></tr>`;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Data Besar - Keuangan</title>
+  ${printBaseStyles()}
+  <style>
+    table.hasil tfoot td { border: 1px solid #999; padding: 5px 8px; }
+    .rp-value { color: #0b3d91; font-weight: 700; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">DATA BESAR — RINGKASAN KEUANGAN GABUNGAN</div>
+    ${periodeLabel ? `<div style="text-align:left; font-size:12.5px; margin:-8px 0 14px;">${escapeHTML(periodeLabel)}</div>` : ''}
+    <table class="hasil">
+      <thead><tr><th>Tanggal</th><th>Sumber</th><th>Keterangan</th><th>Jenis</th><th>Nominal</th></tr></thead>
+      <tbody>${rowsHTML}</tbody>
+      <tfoot>
+        <tr><td colspan="4" style="text-align:right; font-weight:700;">Total Pemasukan</td><td class="rp-value">${formatRupiah(totalMasuk)}</td></tr>
+        <tr><td colspan="4" style="text-align:right; font-weight:700;">Total Pengeluaran</td><td class="rp-value">${formatRupiah(totalKeluar)}</td></tr>
+        <tr><td colspan="4" style="text-align:right; font-weight:700;">Saldo</td><td class="rp-value">${formatRupiah(totalMasuk - totalKeluar)}</td></tr>
+      </tfoot>
+    </table>
+    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')}</div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printDataBesar(rows, totalMasuk, totalKeluar, settings, periodeLabel) {
+  const html = buildDataBesarHTML(rows, totalMasuk, totalKeluar, settings, periodeLabel);
+  openPrintWindow(html, true);
+}
+
+/* ============================ PIMPINAN TTD ============================ */
+
+function buildPimpinanTtdHTML(p, settings) {
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Data Pimpinan - ${escapeHTML(p.nama)}</title>
+  ${printBaseStyles()}
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">DATA PIMPINAN (TANDA TANGAN)</div>
+    <div class="info-grid">
+      <div class="lbl">Nama</div><div>:</div><div>${escapeHTML(p.nama)}</div>
+      <div class="lbl">No. HP</div><div>:</div><div>${escapeHTML(p.hp || '-')}</div>
+    </div>
+    <div class="footer-sign">
+      <div class="sign-box">
+        <div>Pimpinan,</div>
+        <div class="sign-space"></div>
+        <div><strong>${escapeHTML(p.nama)}</strong></div>
+      </div>
+    </div>
+    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')}</div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printPimpinanTtd(p, settings) {
+  const html = buildPimpinanTtdHTML(p, settings);
+  openPrintWindow(html, true);
+}
+
 /* ============================ PENGELUARAN PERBULAN ============================ */
 
 function buildPengeluaranBulananHTML(rows, totalGaji, settings, adminNama, periodeLabel) {

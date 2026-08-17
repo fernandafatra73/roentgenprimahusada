@@ -105,6 +105,7 @@
           <button class="navbtn" data-view="master-dokter">Dokter Pengirim</button>
           <button class="navbtn" data-view="kasir">Kasir</button>
           <button class="navbtn" data-view="admin">Admin</button>
+          <button class="navbtn" data-view="pimpinan-ttd">Pimpinan TTD</button>
           <button class="navbtn" data-view="karyawan">Karyawan</button>
           <button class="navbtn" data-view="running-text">Running Text</button>
           <button class="navbtn" data-view="musik">Musik Prima Husada</button>
@@ -118,6 +119,7 @@
           <button class="navbtn" data-view="keuangan-sharing">Sharing</button>
           <button class="navbtn" data-view="gaji-karyawan">Gaji Karyawan</button>
           <button class="navbtn" data-view="pengeluaran-bulanan">Pengeluaran Perbulan</button>
+          <button class="navbtn" data-view="data-besar">Data Besar</button>
         </div>
       </div>
     </div>
@@ -898,9 +900,16 @@
       </div>
     </form>
 
+    <div class="datasek-summary">
+      <div class="datasek-stat">
+        <div class="stat-label">Total Gaji</div>
+        <div class="stat-value" id="gajiTotalSemua">Rp 0</div>
+      </div>
+    </div>
+
     <div class="toolbar">
       <input type="text" id="cariGaji" placeholder="Cari nama karyawan...">
-      <select id="gajiAdminSelect" title="Admin yang menyerahkan gaji — namanya akan tampil di slip gaji"></select>
+      <select id="gajiPimpinanSelect" title="Pimpinan TTD yang menyerahkan gaji — namanya akan tampil sebagai tanda tangan di slip gaji"></select>
     </div>
     <div class="table-wrap">
       <table class="tbl">
@@ -949,6 +958,55 @@
         <tbody id="tblPengeluaranBody"></tbody>
       </table>
       <div id="emptyPengeluaran" class="empty-state" style="display:none">Belum ada data pengeluaran.</div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: KEUANGAN - DATA BESAR ======================= -->
+  <section id="view-data-besar" class="view">
+    <div class="view-header">
+      <h2>Data Besar</h2>
+    </div>
+    <form id="formDataBesar" class="card form-grid">
+      <div class="form-row"><label>Dari Tanggal</label><input type="date" id="dataBesarDari"></div>
+      <div class="form-row"><label>Sampai Tanggal</label><input type="date" id="dataBesarSampai"></div>
+      <div class="form-row">
+        <label>Jenis</label>
+        <select id="dataBesarJenis">
+          <option value="">Semua (Masuk &amp; Keluar)</option>
+          <option value="masuk">Pemasukan saja</option>
+          <option value="keluar">Pengeluaran saja</option>
+        </select>
+      </div>
+      <div class="form-row form-row-wide">
+        <label>Sumber Data</label>
+        <div class="checkbox-inline-group">
+          <label><input type="checkbox" class="dataBesarSumber" value="lab" checked> Laboratorium</label>
+          <label><input type="checkbox" class="dataBesarSumber" value="radiologi" checked> Radiologi</label>
+          <label><input type="checkbox" class="dataBesarSumber" value="gaji" checked> Gaji Karyawan</label>
+          <label><input type="checkbox" class="dataBesarSumber" value="pengeluaran" checked> Pengeluaran Bulanan</label>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Tampilkan</button>
+      </div>
+    </form>
+
+    <div class="datasek-summary">
+      <div class="datasek-stat"><div class="stat-label">Total Pemasukan</div><div class="stat-value" id="dataBesarTotalMasuk">Rp 0</div></div>
+      <div class="datasek-stat"><div class="stat-label">Total Pengeluaran</div><div class="stat-value" id="dataBesarTotalKeluar">Rp 0</div></div>
+      <div class="datasek-stat"><div class="stat-label">Saldo</div><div class="stat-value" id="dataBesarSaldo">Rp 0</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="cariDataBesar" placeholder="Cari keterangan...">
+      <button type="button" class="btn btn-primary" id="btnCetakDataBesar">Cetak</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Tanggal</th><th>Sumber</th><th>Keterangan</th><th>Jenis</th><th>Nominal</th><th>Aksi</th></tr></thead>
+        <tbody id="tblDataBesarBody"></tbody>
+      </table>
+      <div id="emptyDataBesar" class="empty-state" style="display:none">Tidak ada data pada filter ini.</div>
     </div>
   </section>
 
@@ -1206,6 +1264,28 @@
     </div>
   </section>
 
+  <!-- ======================= VIEW: PIMPINAN TTD ======================= -->
+  <section id="view-pimpinan-ttd" class="view">
+    <div class="view-header">
+      <h2>Pimpinan TTD</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newPimpinanNama" placeholder="Nama pimpinan...">
+      <input type="text" id="newPimpinanHp" placeholder="No. HP...">
+      <button class="btn btn-primary" id="btnAddPimpinan">Tambah</button>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="cariPimpinan" placeholder="Cari nama pimpinan...">
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama</th><th>No. HP</th><th>Aksi</th></tr></thead>
+        <tbody id="tblPimpinanBody"></tbody>
+      </table>
+      <div id="emptyPimpinan" class="empty-state" style="display:none">Belum ada data pimpinan.</div>
+    </div>
+  </section>
+
   <!-- ======================= VIEW: KARYAWAN ======================= -->
   <section id="view-karyawan" class="view">
     <div class="view-header">
@@ -1226,13 +1306,27 @@
     </div>
     <div class="toolbar">
       <input type="text" id="cariKaryawan" placeholder="Cari nama karyawan...">
+      <button type="button" class="btn btn-primary" id="btnCetakKaryawan">Cetak</button>
+      <div class="foto-karyawan-panel">
+        <div class="foto-karyawan" id="karyawanFotoBox" title="Klik untuk unggah/ubah foto (3x3)">
+          <span class="foto-placeholder">Pilih nama<br>di tabel</span>
+        </div>
+        <div class="foto-karyawan-nama" id="karyawanFotoNama">-</div>
+        <input type="file" accept="image/*" id="karyawanFotoInput" style="display:none;">
+      </div>
     </div>
     <div class="table-wrap">
       <table class="tbl">
-        <thead><tr><th>Nama</th><th>No. HP</th><th>Bank</th><th>No. Rekening</th><th>Jumlah Gaji</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Nama</th><th>No. HP</th><th>Bank</th><th>No. Rekening</th><th>Jumlah Gaji</th><th>Aktif</th><th>Foto</th><th>Aksi</th></tr></thead>
         <tbody id="tblKaryawanBody"></tbody>
       </table>
       <div id="emptyKaryawan" class="empty-state" style="display:none">Tidak ada data.</div>
+    </div>
+    <div class="datasek-summary datasek-summary-end">
+      <div class="datasek-stat">
+        <div class="stat-label">Total Jumlah Gaji</div>
+        <div class="stat-value" id="karyawanTotalGaji">Rp 0</div>
+      </div>
     </div>
   </section>
 

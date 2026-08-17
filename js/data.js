@@ -27,6 +27,7 @@ const DB_KEYS = {
   RAD_EDIT_TABS: 'rad_edit_tabs',
   RAD_PAJAK_SETTING: 'rad_pajak_setting',
   ADMIN: 'lab_admin',
+  PIMPINAN_TTD: 'pimpinan_ttd',
   KARYAWAN: 'lab_karyawan',
   GAJI_KARYAWAN: 'gaji_karyawan',
   RUNNING_TEXT: 'running_text',
@@ -49,7 +50,7 @@ const ROLES = {
     label: 'CEO', views: [
       'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
       'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil', 'rad-bhp',
-      'kasir', 'admin', 'karyawan', 'running-text', 'musik', 'pengaturan', 'users', 'keuangan-sharing', 'gaji-karyawan', 'pengeluaran-bulanan', 'farmasi-obat',
+      'kasir', 'admin', 'pimpinan-ttd', 'karyawan', 'running-text', 'musik', 'pengaturan', 'users', 'keuangan-sharing', 'gaji-karyawan', 'pengeluaran-bulanan', 'data-besar', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
@@ -57,7 +58,7 @@ const ROLES = {
     label: 'Manajer', views: [
       'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
       'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil', 'rad-bhp',
-      'kasir', 'admin', 'karyawan', 'running-text', 'musik', 'pengaturan', 'keuangan-sharing', 'gaji-karyawan', 'pengeluaran-bulanan', 'farmasi-obat',
+      'kasir', 'admin', 'pimpinan-ttd', 'karyawan', 'running-text', 'musik', 'pengaturan', 'keuangan-sharing', 'gaji-karyawan', 'pengeluaran-bulanan', 'data-besar', 'farmasi-obat',
       'rad-pemeriksaan-catalog', 'rad-ai'
     ]
   },
@@ -365,6 +366,10 @@ function defaultAdmin() {
   ];
 }
 
+function defaultPimpinanTtd() {
+  return [];
+}
+
 /* ------------------------------ API DB ----------------------------------- */
 
 const DB = {
@@ -450,6 +455,13 @@ const DB = {
   },
   saveAdmin(list) {
     saveJSON(DB_KEYS.ADMIN, list);
+  },
+
+  getPimpinanTtd() {
+    return loadJSON(DB_KEYS.PIMPINAN_TTD, defaultPimpinanTtd());
+  },
+  savePimpinanTtd(list) {
+    saveJSON(DB_KEYS.PIMPINAN_TTD, list);
   },
 
   getKaryawan() {
@@ -596,6 +608,7 @@ const DB = {
     }
     if (!hasKey(DB_KEYS.RAD_PAJAK_SETTING)) this.savePajakSetting({ persen: 10 });
     if (!hasKey(DB_KEYS.ADMIN)) this.saveAdmin(defaultAdmin());
+    if (!hasKey(DB_KEYS.PIMPINAN_TTD)) this.savePimpinanTtd(defaultPimpinanTtd());
     if (!hasKey(DB_KEYS.KARYAWAN)) this.saveKaryawan([]);
     if (!hasKey(DB_KEYS.GAJI_KARYAWAN)) this.saveGajiKaryawan([]);
     if (!hasKey(DB_KEYS.RUNNING_TEXT)) this.saveRunningText([]);
