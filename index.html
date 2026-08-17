@@ -96,7 +96,9 @@
       <div class="nav-dropdown">
         <button type="button" class="navbtn nav-dropdown-toggle">Farmasi &#9662;</button>
         <div class="nav-dropdown-menu">
+          <button class="navbtn" data-view="farmasi-pendaftaran">Pendaftaran</button>
           <button class="navbtn" data-view="farmasi-obat">Obat &amp; Stok</button>
+          <button class="navbtn" data-view="karyawan-farmasi">Data Karyawan Farmasi</button>
         </div>
       </div>
       <div class="nav-dropdown">
@@ -120,8 +122,10 @@
           <button class="navbtn" data-view="gaji-karyawan">Gaji Karyawan</button>
           <button class="navbtn" data-view="pengeluaran-bulanan">Pengeluaran Perbulan</button>
           <button class="navbtn" data-view="data-besar">Data Besar</button>
+          <button class="navbtn" data-view="kwitansi-semua">Kwitansi</button>
         </div>
       </div>
+      <button type="button" class="navbtn" data-view="hak-akses">Hak Akses</button>
     </div>
   </div>
   <nav class="topnav">
@@ -239,6 +243,7 @@
             <th>No. RM</th>
             <th>Nama Pasien</th>
             <th>JK/Umur</th>
+            <th>No. WA</th>
             <th>Dokter Pengirim</th>
             <th>Analis</th>
             <th>Total</th>
@@ -297,8 +302,8 @@
         </select>
       </div>
       <div class="form-row">
-        <label>No. Telepon</label>
-        <input type="text" id="fTelp">
+        <label>No. WA</label>
+        <input type="text" id="fWa" placeholder="08xxxxxxxxxx">
       </div>
       <div class="form-row form-row-wide">
         <label>Alamat</label>
@@ -422,6 +427,57 @@
     <div id="paketMasterWrap"></div>
   </section>
 
+  <!-- ======================= VIEW: FARMASI - PENDAFTARAN ======================= -->
+  <section id="view-farmasi-pendaftaran" class="view">
+    <div class="view-header">
+      <h2>Pendaftaran Farmasi</h2>
+    </div>
+    <form id="formFarmasi" class="card form-grid">
+      <input type="hidden" id="fFarmasiId">
+      <div class="form-row"><label>No. Registrasi</label><input type="text" id="fFarmasiNoReg" readonly></div>
+      <div class="form-row"><label>Tanggal</label><input type="date" id="fFarmasiTanggal" required></div>
+      <div class="form-row"><label>Nama Pasien</label><input type="text" id="fFarmasiNama" required></div>
+      <div class="form-row"><label>No. WA</label><input type="text" id="fFarmasiWa" placeholder="08xxxxxxxxxx"></div>
+      <div class="form-row form-row-wide"><label>Catatan</label><input type="text" id="fFarmasiCatatan" placeholder="opsional"></div>
+
+      <div class="form-row form-row-wide">
+        <label>Item Obat</label>
+        <div class="form-inline-add" style="padding:0; border:none;">
+          <select id="fFarmasiObat"></select>
+          <input type="number" id="fFarmasiJumlah" min="1" step="1" value="1" style="max-width:100px;">
+          <button type="button" class="btn btn-light" id="btnTambahItemFarmasi">+ Tambah Item</button>
+        </div>
+        <div class="table-wrap" style="margin-top:10px;">
+          <table class="tbl">
+            <thead><tr><th>Obat</th><th>Harga</th><th>Jumlah</th><th>Subtotal</th><th></th></tr></thead>
+            <tbody id="tblFarmasiItemKerja"></tbody>
+          </table>
+        </div>
+        <div class="datasek-summary datasek-summary-end">
+          <div class="datasek-stat"><div class="stat-label">Total Harga</div><div class="stat-value" id="fFarmasiTotalHarga">Rp 0</div></div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="btnSimpanFarmasi">Tambah</button>
+        <button type="button" class="btn btn-light" id="btnBatalEditFarmasi" style="display:none;">Batal Edit</button>
+      </div>
+    </form>
+
+    <div class="toolbar">
+      <input type="text" id="cariFarmasi" placeholder="Cari nama pasien / No. Registrasi...">
+      <select id="farmasiAdminSelect" title="Admin yang bertugas — namanya akan tampil di struk"></select>
+      <button type="button" class="btn btn-primary" id="btnCetakFarmasi">Cetak</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>No. Reg</th><th>Tanggal</th><th>Nama Pasien</th><th>No. WA</th><th>Total</th><th>Aksi</th></tr></thead>
+        <tbody id="tblFarmasiBody"></tbody>
+      </table>
+      <div id="emptyFarmasi" class="empty-state" style="display:none">Belum ada data pendaftaran.</div>
+    </div>
+  </section>
+
   <!-- ======================= VIEW: FARMASI - OBAT & STOK ======================= -->
   <section id="view-farmasi-obat" class="view">
     <div class="view-header">
@@ -450,6 +506,43 @@
         <tbody id="tblObatBody"></tbody>
       </table>
       <div id="emptyObat" class="empty-state" style="display:none">Tidak ada data.</div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: FARMASI - DATA KARYAWAN ======================= -->
+  <section id="view-karyawan-farmasi" class="view">
+    <div class="view-header">
+      <h2>Data Karyawan Farmasi</h2>
+    </div>
+    <div class="card form-inline-add">
+      <input type="text" id="newKaryawanFarmasiNama" placeholder="Nama karyawan...">
+      <input type="text" id="newKaryawanFarmasiHp" placeholder="No. HP...">
+      <select id="newKaryawanFarmasiBank">
+        <option value="">-- Bank --</option>
+        <option value="BCA">BCA</option>
+        <option value="BRI">BRI</option>
+        <option value="Mandiri">Mandiri</option>
+      </select>
+      <input type="text" id="newKaryawanFarmasiRekening" placeholder="No. Rekening...">
+      <input type="number" id="newKaryawanFarmasiGaji" placeholder="Jumlah Gaji" min="0" step="1000">
+      <button class="btn btn-primary" id="btnAddKaryawanFarmasi">Tambah</button>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="cariKaryawanFarmasi" placeholder="Cari nama karyawan...">
+      <button type="button" class="btn btn-primary" id="btnCetakKaryawanFarmasi">Cetak</button>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Nama</th><th>No. HP</th><th>Bank</th><th>No. Rekening</th><th>Jumlah Gaji</th><th>Aktif</th><th>Aksi</th></tr></thead>
+        <tbody id="tblKaryawanFarmasiBody"></tbody>
+      </table>
+      <div id="emptyKaryawanFarmasi" class="empty-state" style="display:none">Tidak ada data.</div>
+    </div>
+    <div class="datasek-summary datasek-summary-end">
+      <div class="datasek-stat">
+        <div class="stat-label">Total Jumlah Gaji</div>
+        <div class="stat-value" id="karyawanFarmasiTotalGaji">Rp 0</div>
+      </div>
     </div>
   </section>
 
@@ -573,6 +666,7 @@
             <th>No. RM</th>
             <th>Nama Pasien</th>
             <th>JK/Umur</th>
+            <th>No. WA</th>
             <th>Dokter Pengirim</th>
             <th>Radiografer</th>
             <th>Pemeriksaan</th>
@@ -635,8 +729,8 @@
         </select>
       </div>
       <div class="form-row">
-        <label>No. Telepon</label>
-        <input type="text" id="fRadTelp">
+        <label>No. WA</label>
+        <input type="text" id="fRadWa" placeholder="08xxxxxxxxxx">
       </div>
       <div class="form-row">
         <label>Alamat</label>
@@ -1007,6 +1101,28 @@
         <tbody id="tblDataBesarBody"></tbody>
       </table>
       <div id="emptyDataBesar" class="empty-state" style="display:none">Tidak ada data pada filter ini.</div>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: KEUANGAN - KWITANSI SEMUA ======================= -->
+  <section id="view-kwitansi-semua" class="view">
+    <div class="view-header">
+      <h2>Kwitansi</h2>
+    </div>
+    <p style="font-size:13.5px; color:var(--muted); margin:-6px 0 14px;">
+      Gabungan semua kwitansi dari Pemeriksaan Radiologi, Pemeriksaan Laboratorium, dan Pembelian Obat (Farmasi).
+      Cetak/Edit/Hapus tiap baris memakai halaman sumbernya masing-masing.
+    </p>
+    <div class="toolbar">
+      <input type="text" id="cariKwitansiSemua" placeholder="Cari nama pasien / No. Registrasi...">
+      <select id="kwitansiSemuaAdminSelect" title="Kasir/Admin yang bertugas — namanya akan tampil di kwitansi/struk"></select>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>No. Reg</th><th>Nama Pasien</th><th>Tanggal</th><th>No. WA</th><th>Jenis</th><th>Total Harga</th><th>Aksi</th></tr></thead>
+        <tbody id="tblKwitansiSemuaBody"></tbody>
+      </table>
+      <div id="emptyKwitansiSemua" class="empty-state" style="display:none">Tidak ada data.</div>
     </div>
   </section>
 
@@ -1418,7 +1534,11 @@
         <input type="password" id="newUserPassword" placeholder="Password">
         <input type="text" id="newUserNama" placeholder="Nama lengkap">
         <select id="newUserRole" class="role-select">
-          <option value="karyawan">Karyawan</option>
+          <option value="radiologi">Petugas Radiologi</option>
+          <option value="laboratorium">Petugas Laboratorium</option>
+          <option value="farmasi">Petugas Farmasi</option>
+          <option value="umum">Petugas Umum</option>
+          <option value="keuangan">Petugas Keuangan</option>
           <option value="manajer">Manajer</option>
           <option value="ceo">CEO</option>
         </select>
@@ -1429,6 +1549,24 @@
       <table class="tbl">
         <thead><tr><th>Username</th><th>Nama</th><th>Peran</th><th>Password</th><th>Aktif</th><th>Aksi</th></tr></thead>
         <tbody id="tblUsersBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ======================= VIEW: HAK AKSES ======================= -->
+  <section id="view-hak-akses" class="view">
+    <div class="view-header">
+      <h2>Hak Akses</h2>
+    </div>
+    <p style="font-size:13.5px; color:var(--muted); margin:-6px 0 14px;">
+      Ringkasan menu yang aktif untuk tiap peran pengguna. Petugas per departemen (Radiologi/Laboratorium/Farmasi/Umum/Keuangan)
+      hanya bisa membuka menu departemennya sendiri. Hanya CEO yang bisa membuka semua menu, termasuk Manajemen Pengguna &amp; halaman ini.
+      Atur peran tiap pengguna di menu <strong>Umum &rarr; Pengguna</strong>.
+    </p>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Peran</th><th>Radiologi</th><th>Laboratorium</th><th>Farmasi</th><th>Umum</th><th>Keuangan</th></tr></thead>
+        <tbody id="tblHakAksesBody"></tbody>
       </table>
     </div>
   </section>

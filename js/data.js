@@ -35,6 +35,8 @@ const DB_KEYS = {
   RAD_BHP: 'rad_bhp',
   PENGELUARAN_BULANAN: 'pengeluaran_bulanan',
   FARMASI_OBAT: 'farmasi_obat',
+  FARMASI_REG: 'farmasi_registrasi',
+  KARYAWAN_FARMASI: 'karyawan_farmasi',
   RAD_PEMERIKSAAN_KESAN: 'rad_pemeriksaan_kesan'
 };
 
@@ -45,25 +47,47 @@ const SESSION_KEY = 'lab_session_uid';
 /* Peran & hak akses. Ini adalah gerbang akses sisi-klien (localStorage) untuk
    kenyamanan penggunaan bersama satu komputer — bukan otentikasi tingkat
    server, karena aplikasi ini tidak memiliki backend. */
+/* Kelompok menu per departemen — dipakai baik untuk hak akses role di bawah
+   maupun untuk menyusun tabel ringkasan di halaman Hak Akses (lihat
+   DEPARTEMEN_GROUPS di app.js). Batasnya persis mengikuti dropdown navigasi
+   Radiologi/Lab/Farmasi/Umum/Keuangan di header. */
+const VIEWS_RADIOLOGI = ['rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-jenis', 'rad-master-kesan', 'rad-edit2', 'rad-pemeriksaan-catalog', 'rad-ai', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil', 'rad-bhp'];
+const VIEWS_LABORATORIUM = ['daftar', 'form', 'hasil', 'master-analis', 'master-paket', 'data-sekunder'];
+const VIEWS_FARMASI = ['farmasi-pendaftaran', 'farmasi-obat', 'karyawan-farmasi'];
+const VIEWS_UMUM = ['master-dokter', 'kasir', 'admin', 'pimpinan-ttd', 'karyawan', 'running-text', 'musik', 'pengaturan'];
+const VIEWS_KEUANGAN = ['keuangan-sharing', 'gaji-karyawan', 'pengeluaran-bulanan', 'data-besar', 'kwitansi-semua'];
+
 const ROLES = {
   ceo: {
     label: 'CEO', views: [
-      'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil', 'rad-bhp',
-      'kasir', 'admin', 'pimpinan-ttd', 'karyawan', 'running-text', 'musik', 'pengaturan', 'users', 'keuangan-sharing', 'gaji-karyawan', 'pengeluaran-bulanan', 'data-besar', 'farmasi-obat',
-      'rad-pemeriksaan-catalog', 'rad-ai'
+      'dashboard', ...VIEWS_RADIOLOGI, ...VIEWS_LABORATORIUM, ...VIEWS_FARMASI, ...VIEWS_UMUM, ...VIEWS_KEUANGAN,
+      'users', 'hak-akses'
     ]
   },
   manajer: {
     label: 'Manajer', views: [
-      'dashboard', 'daftar', 'form', 'hasil', 'master-analis', 'master-dokter', 'master-paket', 'data-sekunder',
-      'rad-daftar', 'rad-form', 'rad-hasil', 'rad-master-jenis', 'rad-master-radiografer', 'rad-master-dokter-sp', 'rad-master-kesan', 'rad-edit2', 'rad-data-sekunder', 'rad-cetak-universal', 'rad-print-hasil', 'rad-bhp',
-      'kasir', 'admin', 'pimpinan-ttd', 'karyawan', 'running-text', 'musik', 'pengaturan', 'keuangan-sharing', 'gaji-karyawan', 'pengeluaran-bulanan', 'data-besar', 'farmasi-obat',
-      'rad-pemeriksaan-catalog', 'rad-ai'
+      'dashboard', ...VIEWS_RADIOLOGI, ...VIEWS_LABORATORIUM, ...VIEWS_FARMASI, ...VIEWS_UMUM, ...VIEWS_KEUANGAN
     ]
   },
-  karyawan: { label: 'Karyawan', views: ['dashboard', 'daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir', 'rad-cetak-universal', 'rad-print-hasil', 'musik'] }
+  karyawan: { label: 'Karyawan', views: ['dashboard', 'daftar', 'form', 'hasil', 'rad-daftar', 'rad-form', 'rad-hasil', 'kasir', 'rad-cetak-universal', 'rad-print-hasil', 'musik'] },
+
+  /* Hak akses per departemen: tiap petugas hanya melihat menu departemennya
+     sendiri (tanpa Dashboard, karena Dashboard menampilkan gabungan
+     pendapatan & pasien lintas departemen). Hanya CEO yang melihat semuanya. */
+  radiologi: { label: 'Petugas Radiologi', views: [...VIEWS_RADIOLOGI] },
+  laboratorium: { label: 'Petugas Laboratorium', views: [...VIEWS_LABORATORIUM] },
+  farmasi: { label: 'Petugas Farmasi', views: [...VIEWS_FARMASI] },
+  umum: { label: 'Petugas Umum', views: [...VIEWS_UMUM] },
+  keuangan: { label: 'Petugas Keuangan', views: [...VIEWS_KEUANGAN] }
 };
+
+const DEPARTEMEN_GROUPS = [
+  { key: 'radiologi', label: 'Radiologi', views: VIEWS_RADIOLOGI },
+  { key: 'laboratorium', label: 'Laboratorium', views: VIEWS_LABORATORIUM },
+  { key: 'farmasi', label: 'Farmasi', views: VIEWS_FARMASI },
+  { key: 'umum', label: 'Umum', views: VIEWS_UMUM },
+  { key: 'keuangan', label: 'Keuangan', views: VIEWS_KEUANGAN }
+];
 
 const DEFAULT_LOGO =
   "data:image/svg+xml;utf8," + encodeURIComponent(`
@@ -574,6 +598,29 @@ const DB = {
     return `RAD-${ymd}-${String(seq.regRad).padStart(4, '0')}`;
   },
 
+  nextNoRegFarmasi() {
+    let seq = loadJSON(DB_KEYS.SEQ, { rm: 0, reg: 0, regRad: 0, regFarmasi: 0 });
+    seq.regFarmasi = (seq.regFarmasi || 0) + 1;
+    saveJSON(DB_KEYS.SEQ, seq);
+    const now = new Date();
+    const ymd = now.toISOString().slice(0, 10).replace(/-/g, '');
+    return `FAR-${ymd}-${String(seq.regFarmasi).padStart(4, '0')}`;
+  },
+
+  getRegistrasiFarmasi() {
+    return loadJSON(DB_KEYS.FARMASI_REG, []);
+  },
+  saveRegistrasiFarmasi(list) {
+    saveJSON(DB_KEYS.FARMASI_REG, list);
+  },
+
+  getKaryawanFarmasi() {
+    return loadJSON(DB_KEYS.KARYAWAN_FARMASI, []);
+  },
+  saveKaryawanFarmasi(list) {
+    saveJSON(DB_KEYS.KARYAWAN_FARMASI, list);
+  },
+
   init() {
     if (!hasKey(DB_KEYS.SETTINGS)) this.saveSettings(defaultSettings());
     if (!hasKey(DB_KEYS.ANALIS)) this.saveAnalis(defaultAnalis());
@@ -582,6 +629,8 @@ const DB = {
     if (!hasKey(DB_KEYS.REG)) this.saveRegistrasi([]);
     if (!hasKey(DB_KEYS.USERS)) this.saveUsers(defaultUsers());
     if (!hasKey(DB_KEYS.FARMASI_OBAT)) this.saveObat(defaultObat());
+    if (!hasKey(DB_KEYS.FARMASI_REG)) this.saveRegistrasiFarmasi([]);
+    if (!hasKey(DB_KEYS.KARYAWAN_FARMASI)) this.saveKaryawanFarmasi([]);
     if (!hasKey(DB_KEYS.RAD_PEMERIKSAAN_KESAN)) this.savePemeriksaanKesan(defaultPemeriksaanKesan());
     if (!hasKey(DB_KEYS.RAD_JENIS)) this.saveJenisRadiologi(defaultJenisRadiologi());
     if (!hasKey(DB_KEYS.RAD_DOKTER_SP)) this.saveDokterRadiologi(defaultDokterRadiologi());
@@ -652,6 +701,22 @@ function formatTanggal(iso) {
   const d = new Date(iso);
   if (isNaN(d)) return iso;
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+/* Ubah nomor telepon Indonesia (format lokal 08xx atau internasional) jadi
+   link wa.me yang bisa langsung dibuka WhatsApp — dipakai di mana saja
+   nomor WA ditampilkan (Pendaftaran Lab/Radiologi/Farmasi, dst). */
+function waHref(nomor) {
+  const digits = String(nomor || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const intl = digits.startsWith('0') ? '62' + digits.slice(1) : digits;
+  return 'https://wa.me/' + intl;
+}
+
+function waLinkHTML(nomor) {
+  const href = waHref(nomor);
+  if (!href) return '-';
+  return `<a href="${href}" target="_blank" rel="noopener" class="wa-link">${escapeHTML(nomor)}</a>`;
 }
 
 function formatPeriode(monthStr) {

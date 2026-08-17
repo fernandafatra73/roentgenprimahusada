@@ -134,8 +134,15 @@ function applyRBAC() {
   const role = ROLES[currentUser.role];
   $all('.navbtn[data-view]').forEach(btn => {
     const view = btn.dataset.view;
-    const visible = view === 'daftar' || role.views.includes(view);
-    btn.classList.toggle('hidden-role', !visible);
+    btn.classList.toggle('hidden-role', !role.views.includes(view));
+  });
+  /* Sembunyikan seluruh grup dropdown (mis. "Radiologi ▾") kalau semua
+     menu di dalamnya tidak diizinkan untuk peran ini — supaya petugas
+     departemen tidak melihat dropdown lain yang isinya kosong. */
+  $all('.nav-dropdown').forEach(grp => {
+    const items = Array.from(grp.querySelectorAll('.navbtn[data-view]'));
+    const adaYangTerlihat = items.some(btn => !btn.classList.contains('hidden-role'));
+    grp.classList.toggle('hidden-role', !adaYangTerlihat);
   });
 }
 
@@ -158,8 +165,10 @@ function enterApp(user) {
   $('#loggedUserNama').textContent = user.nama;
   $('#loggedUserRole').textContent = ROLES[user.role] ? ROLES[user.role].label : user.role;
   renderBrand();
-  showView('dashboard');
-  renderDashboard();
+  const role = ROLES[user.role];
+  const landing = (role && role.views.includes('dashboard')) ? 'dashboard' : ((role && role.views[0]) || 'dashboard');
+  showView(landing);
+  refreshView(landing);
 }
 
 function checkSession() {
@@ -238,6 +247,7 @@ function renderDaftar() {
       <td>${escapeHTML(r.noRM)}</td>
       <td>${escapeHTML(r.nama)}</td>
       <td>${r.jk === 'P' ? 'P' : 'L'} / ${escapeHTML(r.umur || '-')}</td>
+      <td>${waLinkHTML(r.wa)}</td>
       <td>${escapeHTML(dokter ? dokter.nama : '-')}</td>
       <td>${escapeHTML(analis ? analis.nama : '-')}</td>
       <td>${formatRupiah(r.totalHarga)}</td>
@@ -436,7 +446,7 @@ function openForm(regId) {
   $('#fTglLahir').value = reg ? (reg.tglLahir || '') : '';
   $('#fUmur').value = reg ? (reg.umur || '') : '';
   $('#fJK').value = reg ? (reg.jk || 'L') : 'L';
-  $('#fTelp').value = reg ? (reg.telp || '') : '';
+  $('#fWa').value = reg ? (reg.wa || reg.telp || '') : '';
   $('#fAlamat').value = reg ? (reg.alamat || '') : '';
   $('#fCatatan').value = reg ? (reg.catatan || '') : '';
 
@@ -515,7 +525,7 @@ $('#formDaftar').addEventListener('submit', (e) => {
     tglLahir: $('#fTglLahir').value,
     umur: $('#fUmur').value.trim(),
     jk: $('#fJK').value,
-    telp: $('#fTelp').value.trim(),
+    wa: $('#fWa').value.trim(),
     alamat: $('#fAlamat').value.trim(),
     dokterId: $('#fDokter').value,
     analisId: $('#fAnalis').value,
@@ -1031,6 +1041,269 @@ $('#btnTambahPaket').addEventListener('click', async () => {
   showToast('Paket baru ditambahkan.');
 });
 
+/* ============================ FARMASI: PENDAFTARAN ============================ */
+
+let editingFarmasiId = null;
+let farmasiItemsKerja = [];
+
+function isiSelectObatFarmasi() {
+  const sel = $('#fFarmasiObat');
+  const list = DB.getObat().filter(o => o.aktif !== false);
+  sel.innerHTML = list.length
+    ? list.map(o => `<option value="${o.id}">${escapeHTML(o.nama)} (${formatRupiah(o.hargaJual)})</option>`).join('')
+    : '<option value="">(Belum ada obat)</option>';
+}
+
+function renderFarmasiItemsKerja() {
+  const tbody = $('#tblFarmasiItemKerja');
+  tbody.innerHTML = '';
+  let total = 0;
+  farmasiItemsKerja.forEach((it, idx) => {
+    total += it.subtotal;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(it.nama)}</td>
+      <td>${formatRupiah(it.harga)}</td>
+      <td>${it.qty}</td>
+      <td>${formatRupiah(it.subtotal)}</td>
+      <td class="aksi-cell"></td>
+    `;
+    tr.querySelector('.aksi-cell').appendChild(makeBtn('Hapus', 'btn-danger', () => {
+      farmasiItemsKerja.splice(idx, 1);
+      renderFarmasiItemsKerja();
+    }));
+    tbody.appendChild(tr);
+  });
+  $('#fFarmasiTotalHarga').textContent = formatRupiah(total);
+}
+
+$('#btnTambahItemFarmasi').addEventListener('click', () => {
+  const obatId = $('#fFarmasiObat').value;
+  const qty = Number($('#fFarmasiJumlah').value) || 0;
+  if (!obatId) { showToast('Pilih obat terlebih dahulu.'); return; }
+  if (qty <= 0) { showToast('Jumlah harus lebih dari 0.'); return; }
+  const obat = DB.getObat().find(o => o.id === obatId);
+  if (!obat) return;
+  const existing = farmasiItemsKerja.find(it => it.obatId === obatId);
+  if (existing) {
+    existing.qty += qty;
+    existing.subtotal = existing.qty * existing.harga;
+  } else {
+    farmasiItemsKerja.push({ obatId, nama: obat.nama, harga: Number(obat.hargaJual) || 0, qty, subtotal: (Number(obat.hargaJual) || 0) * qty });
+  }
+  $('#fFarmasiJumlah').value = 1;
+  renderFarmasiItemsKerja();
+});
+
+/* Stok obat disesuaikan tiap kali pendaftaran farmasi disimpan/dihapus —
+   arah 1 = kurangi stok (item baru terjual), arah -1 = kembalikan stok
+   (item dibatalkan/dihapus/diedit). */
+function terapkanStokFarmasi(items, arah) {
+  if (!items || !items.length) return;
+  const obatList = DB.getObat();
+  items.forEach(it => {
+    const o = obatList.find(x => x.id === it.obatId);
+    if (o) o.stok = (Number(o.stok) || 0) - arah * (Number(it.qty) || 0);
+  });
+  DB.saveObat(obatList);
+}
+
+function renderFarmasiPendaftaran() {
+  const q = ($('#cariFarmasi').value || '').toLowerCase().trim();
+  const list = DB.getRegistrasiFarmasi()
+    .filter(r => !q || (r.nama || '').toLowerCase().includes(q) || (r.noReg || '').toLowerCase().includes(q))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const tbody = $('#tblFarmasiBody');
+  tbody.innerHTML = '';
+  $('#emptyFarmasi').style.display = list.length ? 'none' : 'block';
+  list.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(r.noReg)}</td>
+      <td>${formatTanggal(r.tanggal)}</td>
+      <td>${escapeHTML(r.nama)}</td>
+      <td>${waLinkHTML(r.wa)}</td>
+      <td>${formatRupiah(r.totalHarga)}</td>
+      <td class="aksi-cell"></td>
+    `;
+    const aksiCell = tr.querySelector('.aksi-cell');
+    aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => printStrukFarmasi(r, DB.getSettings(), $('#farmasiAdminSelect').value)));
+    aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => bukaEditFarmasi(r.id)));
+    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', () => hapusFarmasiReg(r)));
+    tbody.appendChild(tr);
+  });
+}
+
+async function hapusFarmasiReg(r) {
+  const ok = await confirmAsync(`Hapus pendaftaran farmasi "${r.nama}" (${r.noReg})?`);
+  if (!ok) return;
+  terapkanStokFarmasi(r.items, -1);
+  DB.saveRegistrasiFarmasi(DB.getRegistrasiFarmasi().filter(x => x.id !== r.id));
+  renderFarmasiPendaftaran();
+  if (typeof renderKwitansiSemua === 'function') renderKwitansiSemua();
+  showToast('Pendaftaran farmasi dihapus.');
+}
+
+function gotoEditFarmasi(id) {
+  bukaEditFarmasi(id);
+  showView('farmasi-pendaftaran');
+  refreshView('farmasi-pendaftaran');
+}
+
+function bukaEditFarmasi(id) {
+  const r = DB.getRegistrasiFarmasi().find(x => x.id === id);
+  if (!r) return;
+  editingFarmasiId = r.id;
+  farmasiItemsKerja = (r.items || []).map(it => ({ ...it }));
+  $('#fFarmasiId').value = r.id;
+  $('#fFarmasiNoReg').value = r.noReg;
+  $('#fFarmasiTanggal').value = r.tanggal;
+  $('#fFarmasiNama').value = r.nama;
+  $('#fFarmasiWa').value = r.wa || '';
+  $('#fFarmasiCatatan').value = r.catatan || '';
+  renderFarmasiItemsKerja();
+  $('#btnSimpanFarmasi').textContent = 'Update';
+  $('#btnBatalEditFarmasi').style.display = '';
+  window.scrollTo(0, 0);
+}
+
+function batalEditFarmasi() {
+  editingFarmasiId = null;
+  farmasiItemsKerja = [];
+  $('#formFarmasi').reset();
+  $('#fFarmasiId').value = '';
+  $('#fFarmasiNoReg').value = DB.nextNoRegFarmasi();
+  $('#fFarmasiTanggal').value = new Date().toISOString().slice(0, 10);
+  renderFarmasiItemsKerja();
+  $('#btnSimpanFarmasi').textContent = 'Tambah';
+  $('#btnBatalEditFarmasi').style.display = 'none';
+}
+$('#btnBatalEditFarmasi').addEventListener('click', batalEditFarmasi);
+
+$('#formFarmasi').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const nama = $('#fFarmasiNama').value.trim();
+  const tanggal = $('#fFarmasiTanggal').value;
+  if (!nama) { showToast('Nama pasien tidak boleh kosong.'); return; }
+  if (!tanggal) { showToast('Pilih tanggal terlebih dahulu.'); return; }
+  if (farmasiItemsKerja.length === 0) { showToast('Tambahkan minimal satu item obat.'); return; }
+
+  const list = DB.getRegistrasiFarmasi();
+  const existing = editingFarmasiId ? list.find(x => x.id === editingFarmasiId) : null;
+  const totalHarga = farmasiItemsKerja.reduce((s, it) => s + it.subtotal, 0);
+
+  const data = {
+    id: existing ? existing.id : uid('far'),
+    noReg: $('#fFarmasiNoReg').value,
+    tanggal,
+    nama,
+    wa: $('#fFarmasiWa').value.trim(),
+    catatan: $('#fFarmasiCatatan').value.trim(),
+    items: farmasiItemsKerja.map(it => ({ ...it })),
+    totalHarga,
+    createdAt: existing ? existing.createdAt : Date.now(),
+    updatedAt: Date.now()
+  };
+
+  if (existing) terapkanStokFarmasi(existing.items, -1); // kembalikan stok lama dulu
+  terapkanStokFarmasi(data.items, 1); // lalu kurangi sesuai item baru
+
+  if (existing) {
+    const idx = list.findIndex(x => x.id === existing.id);
+    list[idx] = data;
+  } else {
+    list.push(data);
+  }
+  DB.saveRegistrasiFarmasi(list);
+  showToast(editingFarmasiId ? 'Pendaftaran farmasi diperbarui.' : 'Pendaftaran farmasi ditambahkan.');
+  batalEditFarmasi();
+  renderFarmasiPendaftaran();
+});
+
+$('#cariFarmasi').addEventListener('input', renderFarmasiPendaftaran);
+
+$('#btnCetakFarmasi').addEventListener('click', () => {
+  const q = ($('#cariFarmasi').value || '').toLowerCase().trim();
+  const list = DB.getRegistrasiFarmasi()
+    .filter(r => !q || (r.nama || '').toLowerCase().includes(q) || (r.noReg || '').toLowerCase().includes(q))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  printFarmasiList(list, DB.getSettings());
+});
+
+/* ============================ KEUANGAN: KWITANSI SEMUA (GABUNGAN) ============================ */
+/* Gabungan kwitansi dari Pemeriksaan Radiologi, Pemeriksaan Laboratorium, dan
+   Pembelian Obat (Farmasi) — Cetak/Edit/Hapus tiap baris memakai aksi asli
+   dari halaman sumbernya masing-masing, sama seperti pola di Data Besar. */
+
+function kumpulkanKwitansiSemua() {
+  const rows = [];
+  DB.getRegistrasiRadiologi().forEach(r => {
+    rows.push({ tipe: 'radiologi', id: r.id, noReg: r.noReg, nama: r.nama, tanggal: r.tanggal, wa: r.wa, jenisLabel: 'Pemeriksaan Radiologi', totalHarga: Number(r.totalHarga) || 0, createdAt: r.createdAt || 0 });
+  });
+  DB.getRegistrasi().forEach(r => {
+    rows.push({ tipe: 'lab', id: r.id, noReg: r.noReg, nama: r.nama, tanggal: r.tanggal, wa: r.wa, jenisLabel: 'Pemeriksaan Lab', totalHarga: Number(r.totalHarga) || 0, createdAt: r.createdAt || 0 });
+  });
+  DB.getRegistrasiFarmasi().forEach(r => {
+    rows.push({ tipe: 'farmasi', id: r.id, noReg: r.noReg, nama: r.nama, tanggal: r.tanggal, wa: r.wa, jenisLabel: 'Pembelian Obat', totalHarga: Number(r.totalHarga) || 0, createdAt: r.createdAt || 0 });
+  });
+  return rows.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function renderKwitansiSemua() {
+  const q = ($('#cariKwitansiSemua').value || '').toLowerCase().trim();
+  const rows = kumpulkanKwitansiSemua().filter(row =>
+    !q || (row.nama || '').toLowerCase().includes(q) || (row.noReg || '').toLowerCase().includes(q)
+  );
+  const tbody = $('#tblKwitansiSemuaBody');
+  tbody.innerHTML = '';
+  $('#emptyKwitansiSemua').style.display = rows.length ? 'none' : 'block';
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.noReg)}</td>
+      <td>${escapeHTML(row.nama)}</td>
+      <td>${formatTanggal(row.tanggal)}</td>
+      <td>${waLinkHTML(row.wa)}</td>
+      <td>${escapeHTML(row.jenisLabel)}</td>
+      <td>${formatRupiah(row.totalHarga)}</td>
+      <td class="aksi-cell"></td>
+    `;
+    const aksiCell = tr.querySelector('.aksi-cell');
+    const adminNama = $('#kwitansiSemuaAdminSelect').value;
+
+    if (row.tipe === 'radiologi') {
+      aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => {
+        const reg = DB.getRegistrasiRadiologi().find(x => x.id === row.id);
+        if (reg) printKwitansiRad(reg, Object.assign({}, printCtxRad(), { adminNama }));
+      }));
+      aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openFormRad(row.id)));
+      aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => { await hapusRegistrasiRad(row.id); renderKwitansiSemua(); }));
+    } else if (row.tipe === 'lab') {
+      aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => {
+        const reg = DB.getRegistrasi().find(x => x.id === row.id);
+        if (reg) printKwitansiLab(reg, Object.assign({}, printCtx(), { adminNama }));
+      }));
+      aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => openForm(row.id)));
+      aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => { await hapusRegistrasi(row.id); renderKwitansiSemua(); }));
+    } else if (row.tipe === 'farmasi') {
+      aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => {
+        const reg = DB.getRegistrasiFarmasi().find(x => x.id === row.id);
+        if (reg) printStrukFarmasi(reg, DB.getSettings(), adminNama);
+      }));
+      aksiCell.appendChild(makeBtn('Edit', 'btn-light', () => gotoEditFarmasi(row.id)));
+      aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', () => {
+        const reg = DB.getRegistrasiFarmasi().find(x => x.id === row.id);
+        if (reg) hapusFarmasiReg(reg);
+      }));
+    }
+
+    tbody.appendChild(tr);
+  });
+}
+
+$('#cariKwitansiSemua').addEventListener('input', renderKwitansiSemua);
+
 /* ============================ FARMASI: OBAT & STOK ============================ */
 
 function renderObatMaster() {
@@ -1138,6 +1411,126 @@ $('#btnAddObat').addEventListener('click', () => {
   stokMinI.value = '';
   renderObatMaster();
   showToast('Obat baru ditambahkan.');
+});
+
+/* ============================ FARMASI: DATA KARYAWAN ============================ */
+
+function renderKaryawanFarmasi() {
+  const q = ($('#cariKaryawanFarmasi').value || '').toLowerCase().trim();
+  const list = DB.getKaryawanFarmasi();
+  const filtered = list.filter(k => !q || k.nama.toLowerCase().includes(q));
+  const tbody = $('#tblKaryawanFarmasiBody');
+  tbody.innerHTML = '';
+  $('#emptyKaryawanFarmasi').style.display = filtered.length ? 'none' : 'block';
+  const totalGaji = filtered.reduce((s, k) => s + (Number(k.gaji) || 0), 0);
+  $('#karyawanFarmasiTotalGaji').textContent = formatRupiah(totalGaji);
+  const bankOptions = ['BCA', 'BRI', 'Mandiri'];
+  filtered.forEach(k => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="inline-edit" value="${escapeHTML(k.nama)}" readonly></td>
+      <td><input type="text" class="inline-edit" value="${escapeHTML(k.hp || '')}" readonly></td>
+      <td><select class="inline-edit" disabled>
+        <option value="">--</option>
+        ${bankOptions.map(b => `<option value="${b}" ${k.bank === b ? 'selected' : ''}>${b}</option>`).join('')}
+      </select></td>
+      <td><input type="text" class="inline-edit" value="${escapeHTML(k.rekening || '')}" readonly></td>
+      <td><input type="number" class="inline-edit" value="${k.gaji || 0}" readonly></td>
+      <td class="center"><input type="checkbox" ${k.aktif !== false ? 'checked' : ''}></td>
+      <td class="aksi-cell"></td>
+    `;
+    const [namaCell, hpCell, bankCell, rekeningCell, gajiCell, aktifCell, aksiCell] = tr.children;
+    const namaInput = namaCell.querySelector('input');
+    const hpInput = hpCell.querySelector('input');
+    const bankSelect = bankCell.querySelector('select');
+    const rekeningInput = rekeningCell.querySelector('input');
+    const gajiInput = gajiCell.querySelector('input');
+    namaInput.addEventListener('change', (e) => {
+      k.nama = e.target.value.trim();
+      DB.saveKaryawanFarmasi(list);
+      showToast('Karyawan diperbarui.');
+    });
+    hpInput.addEventListener('change', (e) => {
+      k.hp = e.target.value.trim();
+      DB.saveKaryawanFarmasi(list);
+      showToast('Karyawan diperbarui.');
+    });
+    bankSelect.addEventListener('change', (e) => {
+      k.bank = e.target.value;
+      DB.saveKaryawanFarmasi(list);
+      showToast('Karyawan diperbarui.');
+    });
+    rekeningInput.addEventListener('change', (e) => {
+      k.rekening = e.target.value.trim();
+      DB.saveKaryawanFarmasi(list);
+      showToast('Karyawan diperbarui.');
+    });
+    gajiInput.addEventListener('change', (e) => {
+      k.gaji = Number(e.target.value) || 0;
+      DB.saveKaryawanFarmasi(list);
+      $('#karyawanFarmasiTotalGaji').textContent = formatRupiah(filtered.reduce((s, x) => s + (Number(x.gaji) || 0), 0));
+      showToast('Karyawan diperbarui.');
+    });
+    aktifCell.querySelector('input').addEventListener('change', (e) => {
+      k.aktif = e.target.checked;
+      DB.saveKaryawanFarmasi(list);
+    });
+    const editBtn = makeBtn('Edit', 'btn-light', () => {
+      const nowEditing = namaInput.readOnly;
+      namaInput.readOnly = !nowEditing;
+      hpInput.readOnly = !nowEditing;
+      rekeningInput.readOnly = !nowEditing;
+      gajiInput.readOnly = !nowEditing;
+      bankSelect.disabled = !nowEditing;
+      editBtn.textContent = nowEditing ? 'Selesai' : 'Edit';
+      if (nowEditing) namaInput.focus();
+    });
+    aksiCell.appendChild(editBtn);
+    aksiCell.appendChild(makeBtn('Hapus', 'btn-danger', async () => {
+      const ok = await confirmAsync(`Hapus karyawan "${k.nama}"?`);
+      if (!ok) return;
+      DB.saveKaryawanFarmasi(list.filter(x => x.id !== k.id));
+      renderKaryawanFarmasi();
+      showToast('Karyawan dihapus.');
+    }));
+    tbody.appendChild(tr);
+  });
+}
+
+$('#btnAddKaryawanFarmasi').addEventListener('click', () => {
+  const namaInput = $('#newKaryawanFarmasiNama');
+  const hpInput = $('#newKaryawanFarmasiHp');
+  const bankInput = $('#newKaryawanFarmasiBank');
+  const rekeningInput = $('#newKaryawanFarmasiRekening');
+  const gajiInput = $('#newKaryawanFarmasiGaji');
+  const nama = namaInput.value.trim();
+  if (!nama) { showToast('Nama karyawan tidak boleh kosong.'); return; }
+  const list = DB.getKaryawanFarmasi();
+  list.push({
+    id: uid('kryf'),
+    nama,
+    hp: hpInput.value.trim(),
+    bank: bankInput.value,
+    rekening: rekeningInput.value.trim(),
+    gaji: Number(gajiInput.value) || 0,
+    aktif: true
+  });
+  DB.saveKaryawanFarmasi(list);
+  namaInput.value = '';
+  hpInput.value = '';
+  bankInput.value = '';
+  rekeningInput.value = '';
+  gajiInput.value = '';
+  renderKaryawanFarmasi();
+  showToast('Karyawan ditambahkan.');
+});
+
+$('#cariKaryawanFarmasi').addEventListener('input', renderKaryawanFarmasi);
+
+$('#btnCetakKaryawanFarmasi').addEventListener('click', () => {
+  const q = ($('#cariKaryawanFarmasi').value || '').toLowerCase().trim();
+  const list = DB.getKaryawanFarmasi().filter(k => !q || k.nama.toLowerCase().includes(q));
+  printKaryawanFarmasi(list, DB.getSettings());
 });
 
 /* ============================ RADIOLOGI: BHP (BAHAN HABIS PAKAI) ============================ */
@@ -1303,6 +1696,7 @@ function renderDaftarRad() {
       <td>${escapeHTML(r.noRM)}</td>
       <td>${escapeHTML(r.nama)}</td>
       <td>${r.jk === 'P' ? 'P' : 'L'} / ${escapeHTML(r.umur || '-')}</td>
+      <td>${waLinkHTML(r.wa)}</td>
       <td>${escapeHTML(dokter ? dokter.nama : '-')}</td>
       <td>${escapeHTML(radiografer ? radiografer.nama : '-')}</td>
       <td class="small-text">${escapeHTML(jenisNames)}</td>
@@ -1413,7 +1807,7 @@ function openFormRad(regId) {
   $('#fRadTglLahir').value = reg ? (reg.tglLahir || '') : '';
   $('#fRadUmur').value = reg ? (reg.umur || '') : '';
   $('#fRadJK').value = reg ? (reg.jk || 'L') : 'L';
-  $('#fRadTelp').value = reg ? (reg.telp || '') : '';
+  $('#fRadWa').value = reg ? (reg.wa || reg.telp || '') : '';
   $('#fRadAlamat').value = reg ? (reg.alamat || '') : '';
   $('#fRadCatatan').value = reg ? (reg.catatan || '') : '';
 
@@ -1503,7 +1897,7 @@ $('#formDaftarRad').addEventListener('submit', (e) => {
     tglLahir: $('#fRadTglLahir').value,
     umur: $('#fRadUmur').value.trim(),
     jk: $('#fRadJK').value,
-    telp: $('#fRadTelp').value.trim(),
+    wa: $('#fRadWa').value.trim(),
     alamat: $('#fRadAlamat').value.trim(),
     dokterId: $('#fRadDokter').value,
     radiograferId: $('#fRadiografer').value,
@@ -4727,6 +5121,33 @@ function renderUsers() {
   });
 }
 
+/* Ringkasan hak akses per peran — dihitung langsung dari ROLES &
+   DEPARTEMEN_GROUPS (data.js) supaya selalu sinkron dengan menu yang
+   sebenarnya, tidak perlu diperbarui manual tiap kali menu berubah. */
+function renderHakAkses() {
+  if (!currentUser || currentUser.role !== 'ceo') return;
+  const tbody = $('#tblHakAksesBody');
+  tbody.innerHTML = '';
+  Object.keys(ROLES).forEach(roleKey => {
+    const role = ROLES[roleKey];
+    const tr = document.createElement('tr');
+    const selKu = document.createElement('td');
+    selKu.textContent = role.label;
+    tr.appendChild(selKu);
+    DEPARTEMEN_GROUPS.forEach(grp => {
+      const jumlahAda = grp.views.filter(v => role.views.includes(v)).length;
+      let label, cls;
+      if (jumlahAda === 0) { label = '-'; cls = 'badge-belum'; }
+      else if (jumlahAda === grp.views.length) { label = 'Aktif'; cls = 'badge-selesai'; }
+      else { label = 'Sebagian'; cls = 'badge-sebagian'; }
+      const td = document.createElement('td');
+      td.innerHTML = `<span class="badge ${cls}">${label}</span>`;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
 $('#btnAddUser').addEventListener('click', () => {
   if (!currentUser || currentUser.role !== 'ceo') return;
   const usernameI = $('#newUserUsername');
@@ -4935,6 +5356,17 @@ function refreshView(view) {
   else if (view === 'rad-bhp') renderBhpRadiologi();
   else if (view === 'data-sekunder') { renderKwitansiListLab(); populateTahunYearSelectLab(); populateAdminSelect('#sharingAdminLab'); populateAdminSelect('#kwitansiAdminLab'); }
   else if (view === 'farmasi-obat') renderObatMaster();
+  else if (view === 'farmasi-pendaftaran') {
+    isiSelectObatFarmasi();
+    populateAdminSelect('#farmasiAdminSelect');
+    if (!editingFarmasiId && !$('#fFarmasiNoReg').value) {
+      $('#fFarmasiNoReg').value = DB.nextNoRegFarmasi();
+      $('#fFarmasiTanggal').value = new Date().toISOString().slice(0, 10);
+    }
+    renderFarmasiItemsKerja();
+    renderFarmasiPendaftaran();
+  }
+  else if (view === 'karyawan-farmasi') renderKaryawanFarmasi();
   else if (view === 'rad-pemeriksaan-catalog') renderPemeriksaanKesan();
   else if (view === 'rad-ai') populateAiRadiologRegSelect();
   else if (view === 'kasir') { populateKasirAdminSelect(); renderKasirList(); }
@@ -4946,10 +5378,12 @@ function refreshView(view) {
   else if (view === 'gaji-karyawan') { isiSelectKaryawanGaji(); renderGaji(); populatePimpinanSelect('#gajiPimpinanSelect'); }
   else if (view === 'pengeluaran-bulanan') { isiSelectKaryawanPengeluaran(); renderPengeluaranBulanan(); populateAdminSelect('#pengeluaranAdminSelect'); }
   else if (view === 'data-besar') renderDataBesar();
+  else if (view === 'kwitansi-semua') { populateAdminSelect('#kwitansiSemuaAdminSelect'); renderKwitansiSemua(); }
   else if (view === 'rad-master-radiografer') renderRadiografer();
   else if (view === 'rad-master-dokter-sp') renderDokterSp();
   else if (view === 'pengaturan') renderPengaturan();
   else if (view === 'users') renderUsers();
+  else if (view === 'hak-akses') renderHakAkses();
   else if (view === 'keuangan-sharing') {
     if (!$('#hasilHarianTanggal').value) $('#hasilHarianTanggal').value = new Date().toISOString().slice(0, 10);
     populateDokterSelectWithAll('#sharingMingguanDokter');

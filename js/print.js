@@ -561,6 +561,143 @@ function printKaryawan(list, settings) {
   openPrintWindow(html, true);
 }
 
+/* ============================ FARMASI: DATA KARYAWAN ============================ */
+
+function buildKaryawanFarmasiHTML(list, settings) {
+  const totalGaji = list.reduce((s, k) => s + (Number(k.gaji) || 0), 0);
+  const rowsHTML = list.map(k => `
+    <tr>
+      <td>${escapeHTML(k.nama)}</td>
+      <td>${escapeHTML(k.hp || '-')}</td>
+      <td>${escapeHTML(k.bank || '-')}</td>
+      <td>${escapeHTML(k.rekening || '-')}</td>
+      <td class="rp-value">${formatRupiah(k.gaji)}</td>
+      <td>${k.aktif !== false ? 'Aktif' : 'Nonaktif'}</td>
+    </tr>`).join('') || `<tr><td colspan="6" class="empty-state">Tidak ada data.</td></tr>`;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Data Karyawan Farmasi</title>
+  ${printBaseStyles()}
+  <style>
+    table.hasil tfoot td { border: 1px solid #999; padding: 5px 8px; }
+    .rp-value { color: #0b3d91; font-weight: 700; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">DATA KARYAWAN FARMASI</div>
+    <table class="hasil">
+      <thead><tr><th>Nama</th><th>No. HP</th><th>Bank</th><th>No. Rekening</th><th>Jumlah Gaji</th><th>Status</th></tr></thead>
+      <tbody>${rowsHTML}</tbody>
+      <tfoot><tr><td colspan="4" style="text-align:right; font-weight:700;">Total Jumlah Gaji</td><td class="rp-value">${formatRupiah(totalGaji)}</td><td></td></tr></tfoot>
+    </table>
+    <div class="footer-sign">
+      <div class="sign-box">
+        <div>Mengetahui,</div>
+        <div class="sign-space"></div>
+        <div><strong>${escapeHTML(settings.penanggungJawab || '')}</strong></div>
+      </div>
+    </div>
+    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')}</div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printKaryawanFarmasi(list, settings) {
+  const html = buildKaryawanFarmasiHTML(list, settings);
+  openPrintWindow(html, true);
+}
+
+/* ============================ FARMASI: STRUK PENDAFTARAN ============================ */
+
+function buildStrukFarmasiHTML(reg, settings, adminNama) {
+  const itemsHTML = (reg.items || []).map(it => `
+    <tr>
+      <td>${escapeHTML(it.nama)}</td>
+      <td class="rp-value">${formatRupiah(it.harga)}</td>
+      <td>${it.qty}</td>
+      <td class="rp-value">${formatRupiah(it.subtotal)}</td>
+    </tr>`).join('') || `<tr><td colspan="4" class="empty-state">Tidak ada item.</td></tr>`;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Struk Farmasi - ${escapeHTML(reg.nama)}</title>
+  ${printBaseStyles()}
+  <style>
+    table.hasil tfoot td { border: 1px solid #999; padding: 5px 8px; }
+    .rp-value { color: #0b3d91; font-weight: 700; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">STRUK FARMASI</div>
+    <div class="info-grid">
+      <div class="lbl">No. Registrasi</div><div>:</div><div>${escapeHTML(reg.noReg)}</div>
+      <div class="lbl">Nama Pasien</div><div>:</div><div>${escapeHTML(reg.nama)}</div>
+      <div class="lbl">No. WA</div><div>:</div><div>${escapeHTML(reg.wa || '-')}</div>
+      <div class="lbl">Tanggal</div><div>:</div><div>${formatTanggal(reg.tanggal)}</div>
+    </div>
+    <table class="hasil">
+      <thead><tr><th>Obat</th><th>Harga</th><th>Jumlah</th><th>Subtotal</th></tr></thead>
+      <tbody>${itemsHTML}</tbody>
+      <tfoot><tr><td colspan="3" style="text-align:right; font-weight:700;">Total Harga</td><td class="rp-value">${formatRupiah(reg.totalHarga)}</td></tr></tfoot>
+    </table>
+    ${reg.catatan ? `<div style="font-size:13px; margin: -6px 0 14px;"><strong>Catatan</strong> : ${escapeHTML(reg.catatan)}</div>` : ''}
+    <div class="footer-sign">
+      <div class="sign-box">
+        <div>Admin,</div>
+        <div class="sign-space"></div>
+        <div><strong>${escapeHTML(adminNama || settings.penanggungJawab)}</strong></div>
+      </div>
+    </div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Struk</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printStrukFarmasi(reg, settings, adminNama) {
+  const html = buildStrukFarmasiHTML(reg, settings, adminNama);
+  openPrintWindow(html, true);
+}
+
+function buildFarmasiListHTML(list, settings) {
+  const totalSemua = list.reduce((s, r) => s + (Number(r.totalHarga) || 0), 0);
+  const rowsHTML = list.map(r => `
+    <tr>
+      <td>${escapeHTML(r.noReg)}</td>
+      <td>${formatTanggal(r.tanggal)}</td>
+      <td>${escapeHTML(r.nama)}</td>
+      <td>${escapeHTML(r.wa || '-')}</td>
+      <td class="rp-value">${formatRupiah(r.totalHarga)}</td>
+    </tr>`).join('') || `<tr><td colspan="5" class="empty-state">Tidak ada data.</td></tr>`;
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+  <title>Data Pendaftaran Farmasi</title>
+  ${printBaseStyles()}
+  <style>
+    table.hasil tfoot td { border: 1px solid #999; padding: 5px 8px; }
+    .rp-value { color: #0b3d91; font-weight: 700; }
+  </style>
+  </head><body>
+  <div class="sheet">
+    ${buildKopHTML(settings)}
+    <div class="judul">DATA PENDAFTARAN FARMASI</div>
+    <table class="hasil">
+      <thead><tr><th>No. Reg</th><th>Tanggal</th><th>Nama Pasien</th><th>No. WA</th><th>Total</th></tr></thead>
+      <tbody>${rowsHTML}</tbody>
+      <tfoot><tr><td colspan="4" style="text-align:right; font-weight:700;">Total Keseluruhan</td><td class="rp-value">${formatRupiah(totalSemua)}</td></tr></tfoot>
+    </table>
+    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')}</div>
+    <div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>
+  </div>
+  </body></html>`;
+}
+
+function printFarmasiList(list, settings) {
+  const html = buildFarmasiListHTML(list, settings);
+  openPrintWindow(html, true);
+}
+
 /* ============================ KEUANGAN: DATA BESAR (GABUNGAN) ============================ */
 
 function buildDataBesarHTML(rows, totalMasuk, totalKeluar, settings, periodeLabel) {
