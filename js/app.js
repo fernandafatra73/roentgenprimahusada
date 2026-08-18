@@ -1706,7 +1706,7 @@ function renderDaftarRad() {
     `;
     const aksiCell = tr.querySelector('.aksi-cell');
     aksiCell.appendChild(makeBtn('Edit Daftar', 'btn-secondary', () => openFormRad(r.id)));
-    aksiCell.appendChild(makeBtn('Edit Radiologi', 'btn-light', () => openEditRadiologi()));
+    aksiCell.appendChild(makeBtn('Edit Radiologi', 'btn-light', () => openEditRadiologi(r.id)));
     aksiCell.appendChild(makeBtn('Hasil', 'btn-secondary', () => openHasilRad(r.id)));
     aksiCell.appendChild(makeBtn('Hasil Tanpa Bacaan', 'btn-secondary', () => openHasilRad(r.id, true)));
     aksiCell.appendChild(makeBtn('Preview', 'btn-light', () => previewReportRad(r, printCtxRad())));
@@ -1809,6 +1809,7 @@ function openFormRad(regId) {
   $('#fRadJK').value = reg ? (reg.jk || 'L') : 'L';
   $('#fRadWa').value = reg ? (reg.wa || reg.telp || '') : '';
   $('#fRadAlamat').value = reg ? (reg.alamat || '') : '';
+  $('#fRadPesan').value = reg ? (reg.pesan || '') : '';
   $('#fRadCatatan').value = reg ? (reg.catatan || '') : '';
 
   renderJenisPilihan(reg ? reg.jenisIds : []);
@@ -1901,6 +1902,7 @@ $('#formDaftarRad').addEventListener('submit', (e) => {
     alamat: $('#fRadAlamat').value.trim(),
     dokterId: $('#fRadDokter').value,
     radiograferId: $('#fRadiografer').value,
+    pesan: $('#fRadPesan').value.trim(),
     dokterSpId: $('#fDokterSp').value,
     jenisIds: selectedIds,
     jenisSnapshot,
@@ -2108,7 +2110,23 @@ $('#formHasilRad').addEventListener('submit', (e) => {
 let activeBacaanTabId = null;
 let editingBacaanEntryId = null;
 
-function openEditRadiologi() {
+/* Kalau Edit Radiologi dibuka dari baris pasien tertentu (tombol "Edit
+   Radiologi" di Pendaftaran Radiologi), halaman ini otomatis "terkunci" ke
+   pasien itu — klik Diagnosis Cepat langsung terhubung ke Hasil pasien itu
+   (Hasil yang sudah ada, bukan bikin kesan baru terpisah), tanpa perlu
+   ditanya "pasien mana" lagi. Dibuka lewat menu Edit Radiologi biasa (tanpa
+   pasien), perilakunya tetap seperti sebelumnya: tanya pasien mana dulu. */
+let editRadiologiPatientRegId = null;
+
+/* Draf Diagnosis Cepat: klik "Tb" dsb TIDAK langsung tersimpan — teksnya
+   ditampilkan dulu di kotak draf yang bisa diedit/dihapus, baru masuk ke
+   kolom Kesan pasien (yang sudah ada di Hasil-nya) setelah ditekan
+   "Terapkan ke Hasil". */
+let diagnosisCepatDraft = null;
+
+function openEditRadiologi(regId) {
+  editRadiologiPatientRegId = regId || null;
+  diagnosisCepatDraft = null;
   showView('rad-edit2');
   renderBacaanTemplateMaster();
 }
@@ -2222,19 +2240,46 @@ function renderBacaanTabPanel() {
         <span class="diagnosis-cepat-label">Diagnosis Cepat:</span>
         ${penyakitList.map(p => `<button type="button" class="btn btn-sm btn-light diagnosis-cepat-btn" data-kesan="${escapeHTML(p.kesan || p.penyakit)}">${escapeHTML(p.penyakit)}</button>`).join('')}
         <button type="button" class="btn btn-sm btn-secondary diagnosis-cepat-tambah-btn">+ Tambah</button>
+        <button type="button" class="btn btn-sm btn-light diagnosis-cepat-edit-btn">Edit</button>
+        <button type="button" class="btn btn-sm btn-danger diagnosis-cepat-hapus-btn">Hapus</button>
       </div>
       ${penyakitList.length === 0 ? `<div class="small-text" style="margin:-6px 0 16px;">Belum ada Nama Penyakit untuk "${escapeHTML(j.nama)}" di katalog Pemeriksaan — klik "+ Tambah" di atas untuk menambahkannya.</div>` : ''}`;
+
+  const pasienAktif = editRadiologiPatientRegId ? DB.getRegistrasiRadiologi().find(r => r.id === editRadiologiPatientRegId) : null;
+  if (editRadiologiPatientRegId && !pasienAktif) editRadiologiPatientRegId = null;
+  const pasienBannerHTML = pasienAktif ? `
+      <div class="edit-rad-pasien-banner">
+        &#128100; Terkunci ke pasien: <strong>${escapeHTML(pasienAktif.nama)}</strong> (RM ${escapeHTML(pasienAktif.noRM || '-')}) — klik Diagnosis Cepat untuk menyiapkan Kesan pasien ini.
+        <button type="button" class="btn btn-sm btn-light" id="btnKeluarModePasienRad">Keluar</button>
+      </div>` : '';
+
+  const draftKesanHTML = (pasienAktif && diagnosisCepatDraft) ? `
+      <div class="kesan-draft-box">
+        <label>Draf Kesan untuk <strong>${escapeHTML(pasienAktif.nama)}</strong> — cek/edit dulu sebelum diterapkan:</label>
+        <textarea rows="3" id="draftKesanInput">${escapeHTML(diagnosisCepatDraft.kesan)}</textarea>
+        <div class="accordion-actions">
+          <button type="button" class="btn btn-sm btn-primary" id="btnTerapkanDraftKesan">Terapkan ke Hasil</button>
+          <button type="button" class="btn btn-sm btn-danger" id="btnHapusDraftKesan">Hapus</button>
+        </div>
+      </div>` : '';
 
   panel.innerHTML = `
     <div class="kesan-panel-head">
       <h3>${escapeHTML(j.nama)} <span class="small-text">(${escapeHTML(j.modalitas)})</span></h3>
       ${kesanTemplateBadgeHTML(activeBacaanTabId)}
     </div>
+    ${pasienBannerHTML}
     ${diagnosisCepatHTML}
+    ${draftKesanHTML}
     <div class="kesan-linked-section" id="bacaanLinkedKesanBlock" style="margin-top:0; padding-top:0; border-top:none;">
       <div class="kesan-entry-list">${kesanEntriesHTML}</div>
     </div>
   `;
+
+  const terapkanDraftBtn = $('#btnTerapkanDraftKesan');
+  if (terapkanDraftBtn) terapkanDraftBtn.addEventListener('click', terapkanDraftKesan);
+  const hapusDraftBtn = $('#btnHapusDraftKesan');
+  if (hapusDraftBtn) hapusDraftBtn.addEventListener('click', hapusDraftKesan);
 
   $all('#bacaanTabPanel .diagnosis-cepat-btn').forEach(btn => {
     btn.addEventListener('click', () => tambahKesanDariDiagnosisCepat(btn.dataset.kesan));
@@ -2243,23 +2288,56 @@ function renderBacaanTabPanel() {
   if (tambahDiagnosisBtn) {
     tambahDiagnosisBtn.addEventListener('click', () => tambahDiagnosisCepatBaru(j.nama));
   }
+  const editDiagnosisBtn = $('#bacaanTabPanel .diagnosis-cepat-edit-btn');
+  if (editDiagnosisBtn) {
+    editDiagnosisBtn.addEventListener('click', () => editDiagnosisCepat(penyakitList));
+  }
+  const hapusDiagnosisBtn = $('#bacaanTabPanel .diagnosis-cepat-hapus-btn');
+  if (hapusDiagnosisBtn) {
+    hapusDiagnosisBtn.addEventListener('click', () => hapusDiagnosisCepat(penyakitList));
+  }
+  const keluarModeBtn = $('#btnKeluarModePasienRad');
+  if (keluarModeBtn) {
+    keluarModeBtn.addEventListener('click', () => {
+      editRadiologiPatientRegId = null;
+      renderBacaanTabPanel();
+    });
+  }
 }
 
-/* Klik salah satu tombol Diagnosis Cepat langsung menyimpannya sebagai
-   entri Kesan baru — tidak perlu ketik manual & klik "+ Tambah Kesan" lagi.
-   Begitu tersimpan, langsung tanya "Terapkan Kesan ini ke Hasil pasien mana?"
-   supaya bisa langsung dipilihkan ke pasiennya dalam satu alur, tidak perlu
-   klik dua kali (tambah, lalu klik lagi entrinya untuk memilih pasien). */
+/* Klik salah satu tombol Diagnosis Cepat:
+   - Kalau Edit Radiologi sedang terkunci ke satu pasien (dibuka lewat tombol
+     "Edit Radiologi" dari baris pasien tertentu), teksnya TIDAK langsung
+     tersimpan — muncul dulu kotak draf yang bisa diedit/dihapus, baru masuk
+     ke kolom Kesan di Hasil pasien itu setelah ditekan "Terapkan ke Hasil".
+   - Kalau dibuka umum (lewat menu Edit Radiologi biasa, tanpa pasien),
+     tetap tanya "Terapkan Kesan ini ke Hasil pasien mana?" seperti biasa.
+   Tidak ada entri terpisah yang dibuat di daftar/tabel Kesan Pemeriksaan
+   Radiologi (jadi hanya ada satu tempat datanya, tidak dobel). */
 function tambahKesanDariDiagnosisCepat(kesanTeks) {
   if (!kesanTeks) return;
-  const templates = DB.getKesanTemplate();
-  if (!templates[activeBacaanTabId]) templates[activeBacaanTabId] = [];
-  const entry = { id: uid('ks'), kesan: kesanTeks, createdAt: Date.now() };
-  templates[activeBacaanTabId].push(entry);
-  DB.saveKesanTemplate(templates);
-  showToast('Kesan ditambahkan dari diagnosis cepat.');
+  if (editRadiologiPatientRegId) {
+    diagnosisCepatDraft = { kesan: kesanTeks };
+    renderBacaanTabPanel();
+    return;
+  }
+  openPilihPasienUntukKesan({ kesan: kesanTeks }, activeBacaanTabId, () => renderBacaanTabPanel());
+}
+
+function terapkanDraftKesan() {
+  if (!diagnosisCepatDraft || !editRadiologiPatientRegId) return;
+  const teks = $('#draftKesanInput').value.trim();
+  if (!teks) { showToast('Kesan tidak boleh kosong.'); return; }
+  const reg = terapkanKesanKePasien(editRadiologiPatientRegId, activeBacaanTabId, teks);
+  if (!reg) return;
+  diagnosisCepatDraft = null;
+  showToast(`Kesan diterapkan ke Hasil "${reg.nama}".`);
   renderBacaanTabPanel();
-  openPilihPasienUntukKesan(entry, activeBacaanTabId);
+}
+
+function hapusDraftKesan() {
+  diagnosisCepatDraft = null;
+  renderBacaanTabPanel();
 }
 
 /* "+ Tambah" di sebelah tombol-tombol Diagnosis Cepat menambah entri baru
@@ -2274,6 +2352,58 @@ async function tambahDiagnosisCepatBaru(jenisNama) {
   list.push({ id: uid('pmk'), pemeriksaan: jenisNama, penyakit, kesan: kesan || penyakit, aktif: true });
   DB.savePemeriksaanKesan(list);
   showToast('Diagnosis cepat baru ditambahkan.');
+  renderBacaanTabPanel();
+}
+
+/* Tombol "Edit" di sebelah "+ Tambah" — mengubah Nama Penyakit/Kesan yang
+   sudah ada di katalog Pemeriksaan (bukan tambah baru). Kalau lebih dari
+   satu diagnosis cepat untuk pemeriksaan ini, tanya dulu yang mana. */
+async function editDiagnosisCepat(penyakitList) {
+  if (!penyakitList || penyakitList.length === 0) {
+    showToast('Belum ada diagnosis cepat untuk diedit — klik "+ Tambah" dulu.');
+    return;
+  }
+  let target = penyakitList[0];
+  if (penyakitList.length > 1) {
+    const pilihan = await promptAsync(`Diagnosis mana yang mau diedit? (${penyakitList.map(p => p.penyakit).join(', ')})`, target.penyakit);
+    if (!pilihan) return;
+    const found = penyakitList.find(p => p.penyakit.toLowerCase() === pilihan.trim().toLowerCase());
+    if (!found) { showToast('Nama diagnosis tidak ditemukan, tulis persis seperti nama tombolnya.'); return; }
+    target = found;
+  }
+  const penyakitBaru = await promptAsync('Nama penyakit/diagnosis:', target.penyakit);
+  if (!penyakitBaru) return;
+  const kesanBaru = await promptAsync('Teks kesan untuk diagnosis ini:', target.kesan || target.penyakit);
+  if (kesanBaru == null) return;
+  const list = DB.getPemeriksaanKesan();
+  const entry = list.find(p => p.id === target.id);
+  if (!entry) { showToast('Data diagnosis ini sudah tidak ada.'); return; }
+  entry.penyakit = penyakitBaru;
+  entry.kesan = kesanBaru || penyakitBaru;
+  DB.savePemeriksaanKesan(list);
+  showToast('Diagnosis cepat diperbarui.');
+  renderBacaanTabPanel();
+}
+
+/* Tombol "Hapus" di sebelah "Edit" — menghapus salah satu diagnosis cepat
+   dari katalog Pemeriksaan (tombolnya jadi tidak muncul lagi di sini). */
+async function hapusDiagnosisCepat(penyakitList) {
+  if (!penyakitList || penyakitList.length === 0) {
+    showToast('Belum ada diagnosis cepat untuk dihapus.');
+    return;
+  }
+  let target = penyakitList[0];
+  if (penyakitList.length > 1) {
+    const pilihan = await promptAsync(`Diagnosis mana yang mau dihapus? (${penyakitList.map(p => p.penyakit).join(', ')})`, target.penyakit);
+    if (!pilihan) return;
+    const found = penyakitList.find(p => p.penyakit.toLowerCase() === pilihan.trim().toLowerCase());
+    if (!found) { showToast('Nama diagnosis tidak ditemukan, tulis persis seperti nama tombolnya.'); return; }
+    target = found;
+  }
+  const ok = await confirmAsync(`Hapus diagnosis cepat "${target.penyakit}"?`);
+  if (!ok) return;
+  DB.savePemeriksaanKesan(DB.getPemeriksaanKesan().filter(p => p.id !== target.id));
+  showToast('Diagnosis cepat dihapus.');
   renderBacaanTabPanel();
 }
 
@@ -2305,7 +2435,33 @@ function renderPilihPasienKesanList(query) {
     : `<div class="empty-state">Belum ada data pendaftaran radiologi.</div>`;
 }
 
-function openPilihPasienUntukKesan(entry, jenisId) {
+/* Inti dari "terapkan kesan ke pasien" — dipakai baik lewat modal pilih
+   pasien maupun langsung (kalau Edit Radiologi sedang terkunci ke satu
+   pasien). Menyambung ke Hasil pasien yang sudah ada (auto-tambah jenis
+   pemeriksaan itu kalau pasiennya belum punya), bukan membuat kesan baru
+   yang terpisah. */
+function terapkanKesanKePasien(regId, jenisId, kesanTeks) {
+  const list = DB.getRegistrasiRadiologi();
+  const reg = list.find(r => r.id === regId);
+  if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return null; }
+  reg.jenisSnapshot = reg.jenisSnapshot || [];
+  reg.jenisIds = reg.jenisIds || [];
+  if (!reg.jenisSnapshot.some(j => j.id === jenisId)) {
+    const jenis = DB.getJenisRadiologi().find(j => j.id === jenisId);
+    if (jenis) {
+      reg.jenisSnapshot.push(JSON.parse(JSON.stringify(jenis)));
+      reg.jenisIds.push(jenis.id);
+      reg.totalHarga = reg.jenisSnapshot.reduce((sum, j) => sum + (Number(j.harga) || 0), 0);
+    }
+  }
+  reg.hasil = reg.hasil || {};
+  if (!reg.hasil[jenisId]) reg.hasil[jenisId] = { hasilBacaan: '', kesan: '' };
+  reg.hasil[jenisId].kesan = kesanTeks;
+  DB.saveRegistrasiRadiologi(list);
+  return reg;
+}
+
+function openPilihPasienUntukKesan(entry, jenisId, onApplied) {
   pilihPasienKesanJenisId = jenisId;
   $('#pilihPasienKesanCari').value = '';
   renderPilihPasienKesanList('');
@@ -2319,23 +2475,8 @@ function openPilihPasienUntukKesan(entry, jenisId) {
     const item = e.target.closest('.pilih-pasien-item');
     if (!item) return;
     const regId = item.dataset.regid;
-    const list = DB.getRegistrasiRadiologi();
-    const reg = list.find(r => r.id === regId);
-    if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
-    reg.jenisSnapshot = reg.jenisSnapshot || [];
-    reg.jenisIds = reg.jenisIds || [];
-    if (!reg.jenisSnapshot.some(j => j.id === pilihPasienKesanJenisId)) {
-      const jenis = DB.getJenisRadiologi().find(j => j.id === pilihPasienKesanJenisId);
-      if (jenis) {
-        reg.jenisSnapshot.push(JSON.parse(JSON.stringify(jenis)));
-        reg.jenisIds.push(jenis.id);
-        reg.totalHarga = reg.jenisSnapshot.reduce((sum, j) => sum + (Number(j.harga) || 0), 0);
-      }
-    }
-    reg.hasil = reg.hasil || {};
-    if (!reg.hasil[pilihPasienKesanJenisId]) reg.hasil[pilihPasienKesanJenisId] = { hasilBacaan: '', kesan: '' };
-    reg.hasil[pilihPasienKesanJenisId].kesan = entry.kesan;
-    DB.saveRegistrasiRadiologi(list);
+    const reg = terapkanKesanKePasien(regId, pilihPasienKesanJenisId, entry.kesan);
+    if (!reg) return;
 
     const templates = DB.getKesanTemplate();
     const tplEntry = (templates[pilihPasienKesanJenisId] || []).find(x => x.id === entry.id);
@@ -2347,7 +2488,7 @@ function openPilihPasienUntukKesan(entry, jenisId) {
     }
     cleanup();
     showToast('Kesan diterapkan ke Hasil pasien.');
-    openHasilRad(regId);
+    if (onApplied) onApplied(reg); else openHasilRad(regId);
   };
   const onCancel = () => cleanup();
   const cleanup = () => {
@@ -2371,6 +2512,7 @@ $('#bacaanTemplateWrap').addEventListener('click', (e) => {
   if (tab) {
     activeBacaanTabId = tab.dataset.jenisid;
     editingBacaanEntryId = null;
+    diagnosisCepatDraft = null;
     renderBacaanTemplateMaster();
     return;
   }

@@ -331,6 +331,11 @@ body {
 
 /* -------------------------------- Jenis pemeriksaan pilihan (radiologi) -------- */
 
+#jenisPilihan.paket-grid { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 720px) {
+  #jenisPilihan.paket-grid { grid-template-columns: 1fr; }
+}
+
 .jenis-group-title { grid-column: 1 / -1; font-weight: 700; color: var(--primary-dark); font-size: 13px; margin: 4px 0 -2px; }
 
 /* -------------------------------- Edit2 radiologi: akordeon katalog ------------ */
@@ -395,6 +400,23 @@ body {
 .kesan-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .kesan-panel-head h3 { margin: 0; color: var(--primary-dark); font-size: 16px; }
 .kesan-panel-head .accordion-badge { font-size: 13px; }
+
+.edit-rad-pasien-banner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #eef6f4; border: 1px solid var(--primary); border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; color: var(--primary-dark); margin: -6px 0 16px;
+}
+.edit-rad-pasien-banner strong { color: var(--primary-dark); }
+
+.kesan-draft-box {
+  border: 1px solid var(--primary); border-radius: 8px; padding: 12px 14px;
+  background: #fafcfb; margin: -6px 0 16px;
+}
+.kesan-draft-box label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.kesan-draft-box textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; resize: vertical; margin-bottom: 8px;
+}
 
 .diagnosis-cepat-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -6px 0 16px; }
 .diagnosis-cepat-label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
