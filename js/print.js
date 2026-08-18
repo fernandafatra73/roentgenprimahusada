@@ -150,7 +150,6 @@ function buildReportHTML(reg, ctx, showPrintBar) {
       <div class="lbl">Umur</div><div>:</div><div>${escapeHTML(reg.umur)}</div>
       <div class="lbl">Alamat</div><div>:</div><div>${escapeHTML(reg.alamat)}</div>
       <div class="lbl">Dokter Pengirim</div><div>:</div><div>${escapeHTML(dokter ? dokter.nama : '-')}</div>
-      <div class="lbl">Analis</div><div>:</div><div>${escapeHTML(analis ? analis.nama : '-')}</div>
     </div>
     ${legenda}
     ${tablesHTML}
@@ -161,7 +160,6 @@ function buildReportHTML(reg, ctx, showPrintBar) {
         <div><strong>${escapeHTML(analis ? analis.nama : '-')}</strong></div>
       </div>
     </div>
-    <div style="margin-top:10px; font-size:11px; color:#666;">Dicetak pada ${new Date().toLocaleString('id-ID')} — ${escapeHTML(settings.penanggungJawab)}</div>
     ${showPrintBar ? `<div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>` : ''}
   </div>
   </body></html>`;
