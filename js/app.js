@@ -2214,28 +2214,79 @@ function renderBacaanTabPanel() {
     ? `<div class="small-text">Belum ada kesan tersimpan untuk pemeriksaan ini.</div>`
     : kesanList.map(entry => kesanEntryHTML(activeBacaanTabId, entry)).join('');
 
+  const penyakitList = DB.getPemeriksaanKesan().filter(p =>
+    p.aktif !== false && (p.pemeriksaan || '').toLowerCase() === j.nama.toLowerCase()
+  );
+  const diagnosisCepatHTML = `
+      <div class="diagnosis-cepat-wrap">
+        <span class="diagnosis-cepat-label">Diagnosis Cepat:</span>
+        ${penyakitList.map(p => `<button type="button" class="btn btn-sm btn-light diagnosis-cepat-btn" data-kesan="${escapeHTML(p.kesan || p.penyakit)}">${escapeHTML(p.penyakit)}</button>`).join('')}
+        <button type="button" class="btn btn-sm btn-secondary diagnosis-cepat-tambah-btn">+ Tambah</button>
+      </div>
+      ${penyakitList.length === 0 ? `<div class="small-text" style="margin:-6px 0 16px;">Belum ada Nama Penyakit untuk "${escapeHTML(j.nama)}" di katalog Pemeriksaan — klik "+ Tambah" di atas untuk menambahkannya.</div>` : ''}`;
+
   panel.innerHTML = `
     <div class="kesan-panel-head">
       <h3>${escapeHTML(j.nama)} <span class="small-text">(${escapeHTML(j.modalitas)})</span></h3>
       ${kesanTemplateBadgeHTML(activeBacaanTabId)}
     </div>
+    ${diagnosisCepatHTML}
     <div class="kesan-linked-section" id="bacaanLinkedKesanBlock" style="margin-top:0; padding-top:0; border-top:none;">
-      <label>Tambah Varian Kesan Baru</label>
-      <textarea rows="4" class="kesan-linked-input" placeholder="Tulis salah satu kemungkinan kesan untuk pemeriksaan ini..."></textarea>
-      <div class="accordion-actions" style="margin-bottom:16px;">
-        <button type="button" class="btn btn-sm btn-primary kesan-linked-tambah-btn">+ Tambah Kesan</button>
-      </div>
       <div class="kesan-entry-list">${kesanEntriesHTML}</div>
     </div>
   `;
+
+  $all('#bacaanTabPanel .diagnosis-cepat-btn').forEach(btn => {
+    btn.addEventListener('click', () => tambahKesanDariDiagnosisCepat(btn.dataset.kesan));
+  });
+  const tambahDiagnosisBtn = $('#bacaanTabPanel .diagnosis-cepat-tambah-btn');
+  if (tambahDiagnosisBtn) {
+    tambahDiagnosisBtn.addEventListener('click', () => tambahDiagnosisCepatBaru(j.nama));
+  }
 }
 
-/* Kesan yang diketik langsung di Edit Radiologi (bukan hasil sinkron dari
-   Hasil pasien) belum terhubung ke pasien manapun. Klik di entry seperti
-   itu membuka pencarian semua pasien radiologi, lalu teks Kesan-nya diisi
+/* Klik salah satu tombol Diagnosis Cepat langsung menyimpannya sebagai
+   entri Kesan baru — tidak perlu ketik manual & klik "+ Tambah Kesan" lagi.
+   Begitu tersimpan, langsung tanya "Terapkan Kesan ini ke Hasil pasien mana?"
+   supaya bisa langsung dipilihkan ke pasiennya dalam satu alur, tidak perlu
+   klik dua kali (tambah, lalu klik lagi entrinya untuk memilih pasien). */
+function tambahKesanDariDiagnosisCepat(kesanTeks) {
+  if (!kesanTeks) return;
+  const templates = DB.getKesanTemplate();
+  if (!templates[activeBacaanTabId]) templates[activeBacaanTabId] = [];
+  const entry = { id: uid('ks'), kesan: kesanTeks, createdAt: Date.now() };
+  templates[activeBacaanTabId].push(entry);
+  DB.saveKesanTemplate(templates);
+  showToast('Kesan ditambahkan dari diagnosis cepat.');
+  renderBacaanTabPanel();
+  openPilihPasienUntukKesan(entry, activeBacaanTabId);
+}
+
+/* "+ Tambah" di sebelah tombol-tombol Diagnosis Cepat menambah entri baru
+   ke katalog Pemeriksaan (menu Radiologi > Pemeriksaan) supaya tombolnya
+   langsung muncul di sini juga, untuk pemeriksaan manapun (Thorax, BNO, dst). */
+async function tambahDiagnosisCepatBaru(jenisNama) {
+  const penyakit = await promptAsync('Nama penyakit/diagnosis baru:');
+  if (!penyakit) return;
+  const kesan = await promptAsync('Teks kesan untuk diagnosis ini:', penyakit);
+  if (kesan == null) return;
+  const list = DB.getPemeriksaanKesan();
+  list.push({ id: uid('pmk'), pemeriksaan: jenisNama, penyakit, kesan: kesan || penyakit, aktif: true });
+  DB.savePemeriksaanKesan(list);
+  showToast('Diagnosis cepat baru ditambahkan.');
+  renderBacaanTabPanel();
+}
+
+/* Kesan yang belum terhubung ke pasien manapun (baik dari Edit Radiologi
+   maupun dari halaman Kesan Pemeriksaan Radiologi) — klik entry seperti itu
+   membuka pencarian semua pasien radiologi, lalu teks Kesan-nya diisi
    langsung ke Hasil pasien yang dipilih. Kalau pasien itu belum punya
    jenis pemeriksaan yang sama, jenisnya otomatis ditambahkan (harga ikut
-   ditambahkan ke total) supaya Kesan-nya benar-benar muncul di Hasilnya. */
+   ditambahkan ke total) supaya Kesan-nya benar-benar muncul di Hasilnya.
+   pilihPasienKesanJenisId dipakai sebagai pengganti activeBacaanTabId/
+   activeKesanTabId supaya modal ini bisa dipakai dari kedua halaman. */
+let pilihPasienKesanJenisId = null;
+
 function renderPilihPasienKesanList(query) {
   const q = (query || '').toLowerCase().trim();
   const list = DB.getRegistrasiRadiologi()
@@ -2244,7 +2295,7 @@ function renderPilihPasienKesanList(query) {
   const listEl = $('#pilihPasienKesanList');
   listEl.innerHTML = list.length
     ? list.map(r => {
-      const sudahAda = (r.jenisSnapshot || []).some(j => j.id === activeBacaanTabId);
+      const sudahAda = (r.jenisSnapshot || []).some(j => j.id === pilihPasienKesanJenisId);
       return `
       <button type="button" class="pilih-pasien-item" data-regid="${r.id}">
         <span><strong>${escapeHTML(r.nama)}</strong> — No.RM: ${escapeHTML(r.noRM || '-')}${sudahAda ? '' : ' <span class="small-text">(pemeriksaan akan ditambahkan)</span>'}</span>
@@ -2254,7 +2305,8 @@ function renderPilihPasienKesanList(query) {
     : `<div class="empty-state">Belum ada data pendaftaran radiologi.</div>`;
 }
 
-function openPilihPasienUntukKesan(entry) {
+function openPilihPasienUntukKesan(entry, jenisId) {
+  pilihPasienKesanJenisId = jenisId;
   $('#pilihPasienKesanCari').value = '';
   renderPilihPasienKesanList('');
   const modal = $('#modalPilihPasienKesan');
@@ -2272,8 +2324,8 @@ function openPilihPasienUntukKesan(entry) {
     if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
     reg.jenisSnapshot = reg.jenisSnapshot || [];
     reg.jenisIds = reg.jenisIds || [];
-    if (!reg.jenisSnapshot.some(j => j.id === activeBacaanTabId)) {
-      const jenis = DB.getJenisRadiologi().find(j => j.id === activeBacaanTabId);
+    if (!reg.jenisSnapshot.some(j => j.id === pilihPasienKesanJenisId)) {
+      const jenis = DB.getJenisRadiologi().find(j => j.id === pilihPasienKesanJenisId);
       if (jenis) {
         reg.jenisSnapshot.push(JSON.parse(JSON.stringify(jenis)));
         reg.jenisIds.push(jenis.id);
@@ -2281,12 +2333,12 @@ function openPilihPasienUntukKesan(entry) {
       }
     }
     reg.hasil = reg.hasil || {};
-    if (!reg.hasil[activeBacaanTabId]) reg.hasil[activeBacaanTabId] = { hasilBacaan: '', kesan: '' };
-    reg.hasil[activeBacaanTabId].kesan = entry.kesan;
+    if (!reg.hasil[pilihPasienKesanJenisId]) reg.hasil[pilihPasienKesanJenisId] = { hasilBacaan: '', kesan: '' };
+    reg.hasil[pilihPasienKesanJenisId].kesan = entry.kesan;
     DB.saveRegistrasiRadiologi(list);
 
     const templates = DB.getKesanTemplate();
-    const tplEntry = (templates[activeBacaanTabId] || []).find(x => x.id === entry.id);
+    const tplEntry = (templates[pilihPasienKesanJenisId] || []).find(x => x.id === entry.id);
     if (tplEntry) {
       tplEntry.patientRegId = reg.id;
       tplEntry.patientNama = reg.nama;
@@ -2327,19 +2379,6 @@ $('#bacaanTemplateWrap').addEventListener('click', (e) => {
 $('#bacaanTabPanel').addEventListener('click', (e) => {
   const linkedBlock = e.target.closest('#bacaanLinkedKesanBlock');
   if (linkedBlock) {
-    const linkedTambahBtn = e.target.closest('.kesan-linked-tambah-btn');
-    if (linkedTambahBtn) {
-      const textarea = $('#bacaanLinkedKesanBlock .kesan-linked-input');
-      const teks = textarea.value.trim();
-      if (!teks) { showToast('Tulis kesan terlebih dahulu.'); return; }
-      const templates = DB.getKesanTemplate();
-      if (!templates[activeBacaanTabId]) templates[activeBacaanTabId] = [];
-      templates[activeBacaanTabId].push({ id: uid('ks'), kesan: teks, createdAt: Date.now() });
-      DB.saveKesanTemplate(templates);
-      showToast('Kesan baru ditambahkan.');
-      renderBacaanTabPanel();
-      return;
-    }
     const linkedCopyBtn = e.target.closest('.kesan-entry-copy-btn');
     if (linkedCopyBtn) {
       const entryId = linkedCopyBtn.closest('.kesan-entry').dataset.entryid;
@@ -2414,7 +2453,7 @@ $('#bacaanTabPanel').addEventListener('click', (e) => {
       if (editingKesanEntryId === entryId) return;
       const entry = (DB.getKesanTemplate()[activeBacaanTabId] || []).find(x => x.id === entryId);
       if (!entry) return;
-      if (!entry.patientRegId) { openPilihPasienUntukKesan(entry); return; }
+      if (!entry.patientRegId) { openPilihPasienUntukKesan(entry, activeBacaanTabId); return; }
       const reg = DB.getRegistrasiRadiologi().find(r => r.id === entry.patientRegId);
       if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
       openHasilRad(entry.patientRegId);
@@ -2656,6 +2695,35 @@ function kesanEntryHTML(jenisId, entry) {
     </div>`;
 }
 
+/* Versi baris tabel dari kesanEntryHTML, khusus dipakai di halaman Kesan
+   Pemeriksaan Radiologi (bukan di Edit Radiologi/Bacaan Template yang masih
+   pakai tampilan kartu di atas). */
+function kesanRowHTML(jenisId, entry) {
+  if (editingKesanEntryId === entry.id) {
+    return `
+      <tr class="kesan-row" data-entryid="${entry.id}">
+        <td colspan="3"><textarea rows="3" class="kesan-entry-edit-input">${escapeHTML(entry.kesan)}</textarea></td>
+        <td class="aksi-cell">
+          <button type="button" class="btn btn-sm btn-primary kesan-entry-simpan-edit-btn">Simpan</button>
+          <button type="button" class="btn btn-sm btn-light kesan-entry-batal-edit-btn">Batal</button>
+        </td>
+      </tr>`;
+  }
+  return `
+    <tr class="kesan-row" data-entryid="${entry.id}">
+      <td style="white-space:pre-wrap;">${escapeHTML(entry.kesan)}</td>
+      <td>${entry.patientNama
+        ? `<button type="button" class="kesan-entry-patient-link" data-regid="${entry.patientRegId}">&#128100; ${escapeHTML(entry.patientNama)} (RM ${escapeHTML(entry.patientNoRM || '-')})</button>`
+        : `<span class="small-text">(belum terhubung)</span>`}</td>
+      <td class="small-text">${new Date(entry.createdAt).toLocaleString('id-ID')}</td>
+      <td class="aksi-cell">
+        <button type="button" class="btn btn-sm btn-light kesan-entry-copy-btn">Copy</button>
+        <button type="button" class="btn btn-sm btn-light kesan-entry-edit-btn">Edit</button>
+        <button type="button" class="btn btn-sm btn-danger kesan-entry-hapus-btn">Hapus</button>
+      </td>
+    </tr>`;
+}
+
 function renderKesanTabPanel() {
   const panel = $('#kesanTabPanel');
   if (!activeKesanTabId) {
@@ -2666,9 +2734,7 @@ function renderKesanTabPanel() {
   if (!j) { activeKesanTabId = null; renderKesanTabPanel(); return; }
 
   const list = (DB.getKesanTemplate()[activeKesanTabId] || []).slice().sort((a, b) => b.createdAt - a.createdAt);
-  const entriesHTML = list.length === 0
-    ? `<div class="small-text">Belum ada kesan tersimpan untuk pemeriksaan ini.</div>`
-    : list.map(entry => kesanEntryHTML(activeKesanTabId, entry)).join('');
+  const entriesHTML = list.map(entry => kesanRowHTML(activeKesanTabId, entry)).join('');
 
   panel.innerHTML = `
     <div class="kesan-panel-head">
@@ -2680,7 +2746,13 @@ function renderKesanTabPanel() {
     <div class="accordion-actions" style="margin-bottom:16px;">
       <button type="button" class="btn btn-sm btn-primary kesan-template-tambah-btn">+ Tambah Kesan</button>
     </div>
-    <div class="kesan-entry-list">${entriesHTML}</div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>Kesan</th><th>Pasien Terhubung</th><th>Tanggal</th><th>Aksi</th></tr></thead>
+        <tbody>${entriesHTML}</tbody>
+      </table>
+      ${list.length === 0 ? '<div class="empty-state">Belum ada kesan tersimpan untuk pemeriksaan ini.</div>' : ''}
+    </div>
   `;
 }
 
@@ -2710,7 +2782,7 @@ $('#kesanTabPanel').addEventListener('click', (e) => {
   }
   const copyBtn = e.target.closest('.kesan-entry-copy-btn');
   if (copyBtn) {
-    const entryId = copyBtn.closest('.kesan-entry').dataset.entryid;
+    const entryId = copyBtn.closest('.kesan-row').dataset.entryid;
     const entry = (DB.getKesanTemplate()[activeKesanTabId] || []).find(x => x.id === entryId);
     if (entry) {
       copyTextToClipboard(entry.kesan);
@@ -2720,7 +2792,7 @@ $('#kesanTabPanel').addEventListener('click', (e) => {
   }
   const editBtn = e.target.closest('.kesan-entry-edit-btn');
   if (editBtn) {
-    editingKesanEntryId = editBtn.closest('.kesan-entry').dataset.entryid;
+    editingKesanEntryId = editBtn.closest('.kesan-row').dataset.entryid;
     renderKesanTabPanel();
     return;
   }
@@ -2732,8 +2804,8 @@ $('#kesanTabPanel').addEventListener('click', (e) => {
   }
   const simpanEditBtn = e.target.closest('.kesan-entry-simpan-edit-btn');
   if (simpanEditBtn) {
-    const entryId = simpanEditBtn.closest('.kesan-entry').dataset.entryid;
-    const teks = simpanEditBtn.closest('.kesan-entry').querySelector('.kesan-entry-edit-input').value.trim();
+    const entryId = simpanEditBtn.closest('.kesan-row').dataset.entryid;
+    const teks = simpanEditBtn.closest('.kesan-row').querySelector('.kesan-entry-edit-input').value.trim();
     if (!teks) { showToast('Kesan tidak boleh kosong.'); return; }
     const templates = DB.getKesanTemplate();
     const entry = (templates[activeKesanTabId] || []).find(x => x.id === entryId);
@@ -2746,7 +2818,7 @@ $('#kesanTabPanel').addEventListener('click', (e) => {
   }
   const hapusBtn = e.target.closest('.kesan-entry-hapus-btn');
   if (hapusBtn) {
-    const entryId = hapusBtn.closest('.kesan-entry').dataset.entryid;
+    const entryId = hapusBtn.closest('.kesan-row').dataset.entryid;
     const templates = DB.getKesanTemplate();
     templates[activeKesanTabId] = (templates[activeKesanTabId] || []).filter(entry => entry.id !== entryId);
     DB.saveKesanTemplate(templates);
@@ -2765,13 +2837,13 @@ $('#kesanTabPanel').addEventListener('click', (e) => {
 
   /* Klik di baris kesan mana pun (bukan tombol Edit/Hapus/dst di atas, dan bukan
      saat sedang mode edit teks) langsung melompat ke Hasil pasien terkait. */
-  const entryRow = e.target.closest('.kesan-entry');
+  const entryRow = e.target.closest('.kesan-row');
   if (entryRow && e.target.tagName !== 'TEXTAREA') {
     const entryId = entryRow.dataset.entryid;
     if (editingKesanEntryId === entryId) return;
     const entry = (DB.getKesanTemplate()[activeKesanTabId] || []).find(x => x.id === entryId);
     if (!entry) return;
-    if (!entry.patientRegId) { showToast('Kesan ini belum terhubung ke data pasien manapun.'); return; }
+    if (!entry.patientRegId) { openPilihPasienUntukKesan(entry, activeKesanTabId); return; }
     const reg = DB.getRegistrasiRadiologi().find(r => r.id === entry.patientRegId);
     if (!reg) { showToast('Data pendaftaran pasien ini sudah tidak ada.'); return; }
     openHasilRad(entry.patientRegId);
@@ -2907,13 +2979,19 @@ function renderPrintHasilRadiologi() {
     selLogo.className = 'print-hasil-select';
     selLogo.innerHTML = `<option value="logo">Dengan Logo</option><option value="tanpalogo">Tanpa Logo</option>`;
 
+    const selTtd = document.createElement('select');
+    selTtd.className = 'print-hasil-select';
+    selTtd.innerHTML = `<option value="ttd">Pakai Tanda Tangan</option><option value="tanpattd">Tanpa Tanda Tangan</option>`;
+
     aksiCell.appendChild(selUkuran);
     aksiCell.appendChild(selIsi);
     aksiCell.appendChild(selLogo);
+    aksiCell.appendChild(selTtd);
     aksiCell.appendChild(makeBtn('Cetak', 'btn-primary', () => {
       const tanpaBacaan = selIsi.value === 'kesan';
       const opts = Object.assign({}, PRINT_HASIL_RAD_UKURAN[selUkuran.value]);
       if (selLogo.value === 'tanpalogo') opts.tanpaLogo = true;
+      if (selTtd.value === 'tanpattd') opts.tanpaTtd = true;
       printReportRad(r, printCtxRad(), tanpaBacaan, opts);
     }));
     tbody.appendChild(tr);
@@ -3954,14 +4032,35 @@ function renderDokterSp() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><input type="text" class="inline-edit" value="${escapeHTML(d.nama)}"></td>
+      <td>
+        <div class="ttd-dokter" title="Klik untuk unggah/ubah tanda tangan">
+          ${d.ttd ? `<img src="${d.ttd}" alt="Tanda tangan ${escapeHTML(d.nama)}">` : '<span class="foto-placeholder">+ Tanda<br>Tangan</span>'}
+        </div>
+        <input type="file" accept="image/*" class="ttd-input" style="display:none;">
+      </td>
       <td class="center"><input type="checkbox" ${d.aktif !== false ? 'checked' : ''}></td>
       <td class="aksi-cell"></td>
     `;
-    const [namaCell, aktifCell, aksiCell] = tr.children;
+    const [namaCell, ttdCell, aktifCell, aksiCell] = tr.children;
     namaCell.querySelector('input').addEventListener('change', (e) => {
       d.nama = e.target.value.trim();
       DB.saveDokterRadiologi(list);
       showToast('Dokter Sp.Radiologi diperbarui.');
+    });
+    const ttdDiv = ttdCell.querySelector('.ttd-dokter');
+    const ttdInput = ttdCell.querySelector('.ttd-input');
+    ttdDiv.addEventListener('click', () => ttdInput.click());
+    ttdInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        d.ttd = reader.result;
+        DB.saveDokterRadiologi(list);
+        renderDokterSp();
+        showToast('Tanda tangan diperbarui.');
+      };
+      reader.readAsDataURL(file);
     });
     aktifCell.querySelector('input').addEventListener('change', (e) => {
       d.aktif = e.target.checked;

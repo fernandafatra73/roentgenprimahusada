@@ -282,6 +282,19 @@ body {
 
 .wa-link { color: #1c8a4d; font-weight: 600; text-decoration: none; }
 .wa-link:hover { text-decoration: underline; }
+
+.ttd-dokter {
+  width: 4cm; height: 2cm;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  background: #f4f8f7;
+}
+.ttd-dokter:hover { border-color: var(--primary); }
+.ttd-dokter img { width: 100%; height: 100%; object-fit: contain; }
+.ttd-dokter .foto-placeholder { font-size: 10px; color: var(--muted); text-align: center; padding: 2px; line-height: 1.3; }
 .wa-link::before { content: "📱 "; }
 
 /* -------------------------------- Forms -------------------------------------- */
@@ -383,6 +396,10 @@ body {
 .kesan-panel-head h3 { margin: 0; color: var(--primary-dark); font-size: 16px; }
 .kesan-panel-head .accordion-badge { font-size: 13px; }
 
+.diagnosis-cepat-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -6px 0 16px; }
+.diagnosis-cepat-label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.diagnosis-cepat-btn { border-radius: 20px; }
+
 .kesan-linked-section { margin-top: 22px; padding-top: 18px; border-top: 2px dashed var(--border); }
 
 .kesan-entry-list { display: flex; flex-direction: column; gap: 8px; }
@@ -402,6 +419,12 @@ body {
   font-size: 11px; cursor: pointer; text-decoration: underline;
 }
 .kesan-entry-patient-link:hover { color: var(--primary); }
+
+/* Versi baris tabel (bukan kartu) khusus halaman Kesan Pemeriksaan Radiologi. */
+.kesan-row { cursor: pointer; }
+.kesan-row:hover { background: #f1f8f6; }
+.kesan-row:has(.kesan-entry-edit-input) { cursor: default; }
+.kesan-row:has(.kesan-entry-edit-input):hover { background: transparent; }
 
 /* -------------------------------- Hasil ekspertise radiologi ------------------- */
 

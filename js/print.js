@@ -216,13 +216,15 @@ function buildReportRadHTML(reg, ctx, showPrintBar, tanpaBacaan, opts) {
     </div>
     <div style="font-size:13px; margin: -6px 0 14px;"><strong>Klinis</strong> : ${escapeHTML(reg.catatan) || '-'}</div>
     ${tablesHTML}
-    <div class="footer-sign">
+    ${opts.tanpaTtd ? '' : `<div class="footer-sign">
       <div class="sign-box">
         <div>Dokter Spesialis Radiologi,</div>
-        <div class="sign-space"></div>
+        ${dokterSp && dokterSp.ttd
+          ? `<img src="${dokterSp.ttd}" alt="Tanda tangan" style="height:60px; object-fit:contain;">`
+          : '<div class="sign-space"></div>'}
         <div><strong>${escapeHTML(dokterSp ? dokterSp.nama : '-')}</strong></div>
       </div>
-    </div>
+    </div>`}
     ${showPrintBar ? `<div class="cetak-bar"><button onclick="window.print()">🖨️ Cetak Sekarang</button></div>` : ''}
   </div>
   </body></html>`;
